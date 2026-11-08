@@ -2,7 +2,7 @@
 
 Code and research repository for the Stockholm Lynx Hackathon (Nov 14).
 
-**Team:** Jaakko Pakarinen, Eemil Ylänikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
+**Team:** Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
 
 ---
 
