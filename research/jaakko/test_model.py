@@ -1,52 +1,65 @@
-"""
-research/jaakko/test_model.py - Model evaluator & truncation leak test
-"""
-from __future__ import annotations
+"""Pick speed on train (first 60%), check test once, leak test.
+python research/jaakko/test_model.py              -> Lynx example data
+python research/jaakko/test_model.py data/x.csv   -> any price csv"""
 import sys
 from pathlib import Path
-
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-LYNX_DIR = ROOT_DIR / "lynx_materials"
-if str(ROOT_DIR) not in sys.path:
-    sys.path.insert(0, str(ROOT_DIR))
-if str(LYNX_DIR) not in sys.path:
-    sys.path.insert(0, str(LYNX_DIR))
+ROOT = Path(__file__).resolve().parents[2]
+sys.path[:0] = [str(Path(__file__).resolve().parent), str(ROOT), str(ROOT / "lynx_materials")]
 
 import numpy as np
 import polars as pl
-from src.utils import load_prices, evaluate_model, DATE
+from src.utils import load_prices, DATE
+from signals import SPEEDS
+from model import generate_positions as model
+import evaluation as ev
 
-try:
-    from research.jaakko.model import generate_positions
-except ImportError:
-    from model import generate_positions
+KEYS = ["adjusted_sharpe", "sharpe_1d_lag", "kurtosis", "skewness", "av_holding", "position_bias"]
 
-def run_tests():
-    prices = load_prices()
-    positions = generate_positions(prices)
-    
-    # 1. key figures
-    res = evaluate_model(positions, prices)
-    print("=== Jaakko's Model Evaluation ===")
-    for k in ["adjusted_sharpe", "sharpe", "sharpe_1d_lag", "kurtosis", "av_holding", "position_bias"]:
-        val = res.get(k)
-        print(f"  {k:20s}: {val:+.4f}" if isinstance(val, float) else f"  {k:20s}: {val}")
-        
-    # 2. truncation leak check
-    n_bars = len(prices)
-    cut_indices = [int(n_bars * 0.1), int(n_bars * 0.5), n_bars - 5]
-    max_diff = 0.0
-    full_pos = positions.to_pandas().set_index(DATE)
-    
-    print("\n=== Truncation Leak Check ===")
-    for cut in cut_indices:
-        prices_cut = prices.slice(0, cut + 1)
-        pos_cut = generate_positions(prices_cut).to_pandas().set_index(DATE)
-        diff = np.abs(full_pos.iloc[:cut+1].values - pos_cut.values).max()
-        max_diff = max(max_diff, diff)
-        print(f"  cut {cut:5d} / {n_bars}: diff = {diff:.2e}")
-        
-    print(f"\nResult: {'PASS (0 lookahead)' if max_diff < 1e-10 else 'FAIL (lookahead detected)'}")
+
+def score(pos, prices, start, end):
+    pos = pos.filter(pl.col(DATE).is_between(start, end))
+    return ev.calc_key_figures(pos, prices, key_figures=KEYS)
+
+
+def leak_test(prices, cuts=(0.05, 0.5, 0.9), **kw):
+    # positions on cut history must equal the full run
+    full = model(prices, **kw).drop(DATE).to_numpy()
+    for c in cuts:
+        n = int(len(prices) * c)
+        part = model(prices.slice(0, n), **kw).drop(DATE).to_numpy()
+        if np.abs(full[:n] - part).max() > 1e-9:
+            return False
+    return True
+
+
+def jumps(prices, k=6):
+    # count >6 sigma days per asset (roll gaps show up here)
+    px = prices.to_pandas().set_index(DATE).astype(float)
+    d = px.diff()
+    n = (d.abs() > k * d.rolling(100, min_periods=50).std().shift(1)).sum()
+    return n[n > 0].sort_values(ascending=False)
+
 
 if __name__ == "__main__":
-    run_tests()
+    prices = load_prices(sys.argv[1] if len(sys.argv) > 1 else None)
+    prices = prices.with_columns(pl.col(DATE).cast(pl.Date), pl.exclude(DATE).cast(pl.Float64, strict=False))
+    d = prices[DATE]
+    s0, s1, s2 = d[0], d[int(len(d) * 0.6)], d[-1]
+    j = jumps(prices)
+    print(f"{prices.width - 1} assets, train {s0}..{s1}, test ..{s2}")
+    print(f">6 sigma days: {int(j.sum())}  {dict(j.head(4))}")
+
+    res = {}
+    for sp in SPEEDS:
+        pos = model(prices, speed=sp)
+        res[sp] = (score(pos, prices, s0, s1), score(pos, prices, s1, s2))
+        print(f"{sp:5s} train {res[sp][0]['adjusted_sharpe']:.3f}")
+
+    # best on train; if top two are close (<0.1) take 'all'
+    rank = sorted(res, key=lambda s: -res[s][0]["adjusted_sharpe"])
+    gap = res[rank[0]][0]["adjusted_sharpe"] - res[rank[1]][0]["adjusted_sharpe"]
+    pick = rank[0] if gap >= 0.1 else "all"
+    print(f"\npick: {pick}  (gap {gap:.2f})")
+    for name, r in zip(("train", "test"), res[pick]):
+        print(f"  {name}: " + "  ".join(f"{k} {r[k]:.3f}" for k in KEYS))
+    print("leak test:", "PASS" if leak_test(prices, speed=pick) else "FAIL")

@@ -1,21 +1,28 @@
-# Jaakko's research notes
+# Fri notes
 
-## Fri notes
+### Model (model.py)
+- EWMA crossover (fast EMA - slow EMA) / vol, avg |f| = 1, cap +-2
+- speed sets fast / mid / slow / all, pick best on train (first 60%). top two within 0.1 -> "all"
+- units = forecast / price-change vol (P&L is X * dP)
+- scale whole book so x' Cov x = 1 (250d cov of price changes)
+- move 30% toward target each day -> holding ~40-65d
+- clip one-day jumps at 5x vol before signals (roll gaps). P&L still on raw prices
 
-### 1. Signals
-- sign() too jumpy -> causes fat tails + high kurtosis.
-- multi-horizon EWMAC (16/64, 32/128, 64/256): continuous trend, capped at +/-2.
-- breakout sleeve (80, 160, 320d): channel breakouts add positive skew (lynx rewards skew).
+### Results (adjusted sharpe, train / test)
+- example data: ours (fast) 0.71 / 0.97, team baseline 40/80 tanh 0.73 / 1.05, Lynx 0.53 / 0.85
+- real futures (29, yfinance): ours (all) 0.36 / 0.20, team baseline 0.02 / -0.08 (kurtosis 216)
+- -> team baseline wins on example data, breaks on real data with roll jumps
+- leak test PASS, +1 day lag ~ same
 
-### 2. Risk & Sizing
-- price difference sizing: divide by vol(diff(P)), not pct return vol. PnL is raw dollar moves.
-- banana vol is 11.4% vs cucumber 1.45% -> inverse-vol parity mandatory.
-- blend vol: fast 35d + slow 500d anchor. Cuts size fast in vol spikes.
+### Left out
+- breakout: 0.95 corr with ewmac, off (w_breakout=0)
+- xs_mom: lost money on train. macro: ~0 on test
+- shrinking cov: no difference
+- skew on futures test is negative (~-0.6), so no "positive skew" claim
 
-### 3. Portfolio & Execution
-- ex-ante cov scaling: we cut the correlated bets on day 1 (lynx baseline uses model_risk for dividing the positions within 100d PnL std.dev, which lags).
-- execution glide: 30% daily partial adjustment towards target. Cuts turnover by 60%, extends holding to ~55-70d, kills slippage penalty.
+### Ask Lynx
+- does the test period come with the train history? model has ~1-2y warm-up
 
-### 4. Tests
-- 100% causal: truncation leak test max diff = 0.00e+00.
-- Adj Sharpe on example data: 0.60 (holding 55d, bias +0.003).
+### Run
+- python research/jaakko/test_model.py                         (example data)
+- python research/jaakko/test_model.py data/futures_panel.csv  (local futures, not in git)

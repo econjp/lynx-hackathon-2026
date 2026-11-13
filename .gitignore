@@ -36,3 +36,6 @@ Thumbs.db
 # Generated evaluation submissions
 results_*.csv
 results.csv
+
+# local test data (yfinance futures, not Lynx data)
+data/

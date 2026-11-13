@@ -1,31 +1,15 @@
-"""
-research/jaakko/risk.py - price difference sizing
-"""
-from __future__ import annotations
+"""Sizing: price-change vol (Lynx P&L is X * dP)."""
 import numpy as np
-import pandas as pd
-import polars as pl
-
-DATE = "AsOfDate"
-
-def compute_price_vol_blend(
-    prices_df: pd.DataFrame,
-    fast_span: int = 35,
-    slow_window: int = 500,
-    fast_weight: float = 0.70
-) -> pd.DataFrame:
-    # fast 35d vol + slow 500d anchor
-    diff = prices_df.diff()
-    fast_vol = np.sqrt((diff ** 2).ewm(span=fast_span, min_periods=fast_span // 2).mean())
-    slow_vol = fast_vol.rolling(slow_window, min_periods=60).mean()
-    blended = fast_weight * fast_vol + (1.0 - fast_weight) * slow_vol
-    return blended.replace(0.0, np.nan)
 
 
-def apply_inverse_vol_sizing(
-    signals_df: pd.DataFrame,
-    vol_df: pd.DataFrame
-) -> pd.DataFrame:
-    # X_i = Signal_i / vol(diff(P_i))
-    positions = signals_df / vol_df
-    return positions.replace([np.inf, -np.inf], 0.0).fillna(0.0)
+def price_vol(px):
+    # 70% fast EWMA vol + 30% its 500d average, so size doesn't swing too much
+    diff = px.diff()
+    fast = np.sqrt((diff ** 2).ewm(span=35, min_periods=30).mean())
+    slow = fast.rolling(500, min_periods=60).mean()
+    return (0.7 * fast + 0.3 * slow).replace(0, np.nan)
+
+
+def size(forecast, vol):
+    # units = forecast / vol -> same money risk per asset
+    return forecast / vol
