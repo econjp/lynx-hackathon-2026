@@ -15,3 +15,7 @@
 ### 3. Portfolio & Execution
 - ex-ante cov scaling: we cut the correlated bets on day 1 (lynx baseline uses model_risk for dividing the positions within 100d PnL std.dev, which lags).
 - execution glide: 30% daily partial adjustment towards target. Cuts turnover by 60%, extends holding to ~55-70d, kills slippage penalty.
+
+### 4. Tests
+- 100% causal: truncation leak test max diff = 0.00e+00.
+- Adj Sharpe on example data: 0.60 (holding 55d, bias +0.003).
