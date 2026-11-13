@@ -5,14 +5,10 @@ I could not find a way to make the indexed macro data usable, but maybe during t
 anaylsis can hint toward something. Also during the event i really want to test out the correlations and 2 different strategies with them. 
 1st is the idea to find the assets that are highly correlated and then find the periods where the correlation starts breaking, so maybe 0.1-0.2 
 difference and define those areas as stress conditions, so we will pull back risk there. 2nd is the idea of using dow theory type divergence, especially in
-events like 2008 or covid. (https://www.tradingview.com/x/L7Jftzyl/).
+events like 2008 or covid (https://www.tradingview.com/x/L7Jftzyl/). The divergence hints at a reversal, so we could increase risk there.
 
 
-
-
-
-
-* Traling stop loss: (Link to example: https://www.tradingview.com/x/Qv2te6GK/)
+* (Bullish) Traling stop loss: (Link to example: https://www.tradingview.com/x/Qv2te6GK/)
 
 Code:
 import numpy as np
