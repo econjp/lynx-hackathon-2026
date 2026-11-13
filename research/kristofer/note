@@ -1,1 +1,83 @@
-aa
+I tried many different strategies, but the adj.sharp varies too much accross all the assets. I believe that machine learning will be 
+the most important thing in the event. 
+
+I could not find a way to make the indexed macro data usable, but maybe during the event a quick machine learning or correlation 
+anaylsis can hint toward something. Also during the event i really want to test out the correlations and 2 different strategies with them. 
+1st is the idea to find the assets that are highly correlated and then find the periods where the correlation starts breaking, so maybe 0.1-0.2 
+difference and define those areas as stress conditions, so we will pull back risk there. 2nd is the idea of using dow theory type divergence, especially in
+events like 2008 or covid. (https://www.tradingview.com/x/L7Jftzyl/).
+
+
+
+
+
+
+* Traling stop loss: (Link to example: https://www.tradingview.com/x/Qv2te6GK/)
+
+Code:
+import numpy as np
+import pandas as pd
+
+def three_close_trailing_stop(close: pd.Series) -> pd.DataFrame:
+    """
+    3-close trailing stop (long), closes only. Exact translation of the Pine indicator.
+
+    - 3 rising closes in a row (2 up-moves) -> stop goes under the lowest (1/3) close
+    - Stop only ratchets up, never down
+    - A down-close while armed -> previous close becomes the reference, ratchet suspended
+    - Suspended -> re-arms after 3 rising closes in a row, all above the reference
+    - Close below stop -> exit, reset, start over
+    Uses only data up to each day (no look-ahead).
+    """
+    c = close.to_numpy(dtype=float)
+    n = len(c)
+
+    stop_out = np.full(n, np.nan)
+    ref_out = np.full(n, np.nan)
+    exit_out = np.zeros(n, dtype=bool)
+
+    armed = True
+    stop = np.nan
+    ref = np.nan
+    up_n = 0
+
+    for i in range(n):
+        # consecutive up-close counter
+        up_n = up_n + 1 if i > 0 and c[i] > c[i - 1] else 0
+
+        if not np.isnan(stop) and c[i] < stop:
+            # stopped out -> reset and start over
+            exit_out[i] = True
+            stop = np.nan
+            ref = np.nan
+            armed = True
+            up_n = 0
+        elif armed:
+            # 3 rising closes -> stop under the lowest (1/3) close
+            if up_n >= 2:
+                stop = c[i - 2] if np.isnan(stop) else max(stop, c[i - 2])
+            # sequence break -> previous close becomes reference, ratchet suspended
+            if not np.isnan(stop) and c[i] < c[i - 1]:
+                armed = False
+                ref = c[i - 1]
+        else:
+            # suspended: 3 rising closes, all above the reference -> re-arm
+            if up_n >= 2 and c[i - 2] > ref:
+                stop = max(stop, c[i - 2])
+                armed = True
+                ref = np.nan
+
+        stop_out[i] = stop
+        ref_out[i] = np.nan if armed else ref
+
+    return pd.DataFrame(
+        {"close": c, "stop": stop_out, "reference": ref_out, "exit": exit_out},
+        index=close.index,
+    )
+
+
+# Example:
+# df = pd.read_csv("prices_train.csv", parse_dates=["AsOfDate"], index_col="AsOfDate")
+# res = three_close_trailing_stop(df["Gold"])
+# print(res[res["exit"]])          # stop-out days
+
