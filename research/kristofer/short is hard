@@ -1,9 +1,9 @@
 """
-Downtrend short strategy (shorts only)
-======================================
+Downtrend short strategy (shorts only, all 27 assets)
+=====================================================
 
 Entry:  short after price has closed below the 200-day EMA for DAYS_BELOW
-        days in a row (default 50) -> the market is classified as a downtrend.
+        days in a row (default 55) -> the market is classified as a downtrend.
 Exits:  1) mirrored 3-close trailing stop: 3 falling closes in a row -> stop goes
            above the highest (first) of them; it only moves down, never up;
            a higher close pauses it until 3 falling closes below that reference
@@ -15,7 +15,7 @@ cost DELTA x |change in position|, score = net Adjusted Sharpe.
 
 Usage:
     pip install pandas numpy matplotlib
-    python downtrend_short_backtest.py close_prices_insample.csv
+    python downtrend_short_all27.py close_prices_insample.csv
 """
 
 import sys
@@ -25,10 +25,10 @@ import pandas as pd
 
 # ============================ Settings ============================
 CSV_FILE = sys.argv[1] if len(sys.argv) > 1 else "close_prices_insample.csv"
-ASSET_SUFFIXES = ("_stocks",)     # stocks only (bond shorts lose money)
+ASSET_SUFFIXES = ("",)            # "" = all 27 assets; e.g. ("_stocks",) for stocks only
 
 EMA_LEN = 200
-DAYS_BELOW = 50                   # consecutive closes below EMA200 to enter
+DAYS_BELOW = 55                   # consecutive closes below EMA200 to enter
 
 USE_TRAIL = True                  # on/off: mirrored 3-close trailing stop
 UP_MOVES = 2                      # 2 = 3 falling closes in a row
