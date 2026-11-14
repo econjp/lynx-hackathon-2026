@@ -1,0 +1,163 @@
+\documentclass[10.5pt,a4paper]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,hyperref,enumitem,array}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=black}
+\setlist{nosep,leftmargin=1.4em}
+\setlength{\parskip}{3pt}
+
+\title{\textbf{BOMBASTRAT: Three Textbook Forecasts\\in One Market-Neutral Portfolio}}
+\author{Lynx Hackathon 2026}
+\date{14 November 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\noindent We combine three established return predictors into a single market-neutral futures portfolio: time-series momentum, an inflation-surprise signal for bonds and equities, and convergence of closely linked commodity pairs. Each predictor rests on a distinct economic mechanism, is defined in closed form with a small set of fixed parameters, and fails the corresponding placebo test when that mechanism is removed. The three return streams are mutually uncorrelated ($|\rho|\le 0.06$). Allocated equal risk and held at constant ex-ante volatility, the portfolio attains an adjusted Sharpe ratio of 1.11 net of costs over 1997--2016 with zero average net exposure, against 0.82 for momentum alone and 0.32 for the reference strategy. Performance is stable across neighbouring parameter values.
+\end{abstract}
+
+\section{Introduction}
+Systematic futures strategies draw on three families of signals: trend, reversion and macroeconomic information. We take one well-understood predictor from each family rather than searching a large signal space. Every component is required to have (i) an economic reason to work, (ii) an explicit formula, and (iii) a falsification test.
+
+The resulting portfolio has three properties we regard as essential for out-of-sample credibility. It is \emph{diversified}: the components earn returns in different market conditions. It is \emph{market-neutral}: average net exposure is zero, so returns do not depend on asset prices rising. It is \emph{parsimonious}: the full model is about 100 lines of code with parameters fixed in advance.
+
+\section{Data and evaluation}
+The universe consists of 27 futures: bonds and equity indices for five economies, four currency pairs and thirteen commodities, observed daily from 1995 to 2016, together with CPI and GDP for each economy.
+
+Let $P_{t,i}$ denote the price of asset $i$ on day $t$ and $\Delta P_{t,i}=P_{t,i}-P_{t-1,i}$. A position $x_{t,i}$ determined with information up to day $t$ earns $x_{t,i}\,(P_{t+2,i}-P_{t+1,i})$, a two-day implementation lag, and incurs a cost of $c\,\sigma_{t,i}\,|x_{t,i}-x_{t-1,i}|$ with $c=0.02$. Performance is measured by the adjusted Sharpe ratio
+\begin{equation}
+\mathrm{ASR}=\mathrm{SR}\left(1+\frac{S}{6}\,\mathrm{SR}-\frac{K}{24}\,\mathrm{SR}^2\right),
+\end{equation}
+where SR is the annualised Sharpe ratio of daily net P\&L, $S$ its skewness and $K$ its excess kurtosis. ASR is invariant to the scale of positions, so it rewards the quality and stability of risk-adjusted returns rather than leverage. All results are computed with the organisers' \texttt{evaluation.py}, from 22 May 1997, the first date on which all components hold positions.
+
+\section{Signals}
+All moving statistics are trailing and use information up to day $t$ only. Volatility is estimated as $\sigma_{t,i}=0.7\,v_{t,i}+0.3\,\bar v^{(500)}_{t,i}$, where $v_{t,i}$ is the exponentially weighted root-mean-square of $\Delta P_{t,i}$ (span 35 days) and $\bar v^{(500)}$ its 500-day mean; the blend responds to volatility regimes while limiting turnover. Forecasts are bounded with $\tanh(\cdot)$, which is linear near zero and saturates at $\pm1$, limiting the influence of extreme readings on the tails of the P\&L.
+
+\subsection{Time-series momentum}
+\textit{Mechanism.} Investors under-react to information and adjust positions gradually, so price moves persist over horizons of months. Time-series momentum is among the most robustly documented effects in futures markets (Moskowitz, Ooi and Pedersen, 2012; Hurst, Ooi and Pedersen, 2017).
+
+\textit{Definition.} Let $\tilde P$ be the price series with daily changes winsorised at $5\sigma$, and $\mathrm{EMA}_n$ an exponential moving average of span $n$. Define
+\begin{equation}
+r^{(n,m)}_{t}=\frac{\mathrm{EMA}_n(\tilde P)_t-\mathrm{EMA}_m(\tilde P)_t}{\sigma_t},\qquad
+M_t=\frac{1}{\sigma_t\sqrt{250}}\sum_{s=t-249}^{t}\Delta\tilde P_s .
+\end{equation}
+Each is normalised by its expanding mean absolute value and capped at $\pm2$ (denoted by a hat). The forecast for each of the 27 assets is
+\begin{equation}
+f^{\mathrm{TR}}_t=\tfrac12\Bigl[\tfrac12\bigl(\hat r^{(32,128)}_t+\hat r^{(64,256)}_t\bigr)+\hat M_t\Bigr].
+\end{equation}
+The two crossovers capture trends of roughly two to twelve months; the 12-month return is the canonical momentum measure.
+
+\subsection{Inflation surprise}
+\textit{Mechanism.} Inflation above its recent norm raises expected policy rates. Higher rates lower bond prices directly and equity valuations through the discount rate. The signal therefore shorts an economy's bonds and equities when its inflation runs hot, and buys them when it runs cool.
+
+\textit{Definition.} For each economy, let $C_t$ be the latest CPI value available on day $t$ and $k$ the measurement horizon: $k=60$ days for bonds and $k=120$ for equities, which respond to more persistent inflation. Then
+\begin{equation}
+g_t=\ln C_t-\ln C_{t-k},\qquad
+z_t=\frac{g_t-\bar g^{(750)}_t}{\operatorname{sd}^{(750)}_t\!\left(g-\bar g^{(750)}\right)},\qquad
+f^{\mathrm{INF}}_t=-\tanh(z_t),
+\end{equation}
+so inflation is measured relative to its own trailing three-year norm. The signal applies to the five bond and five equity futures.
+
+\subsection{Twin-pair convergence}
+\textit{Mechanism.} Individual futures prices show no reliable reversion, but the relative price of two forms of the same good is anchored by substitution and arbitrage: when one form becomes cheap relative to the other, demand shifts and the spread closes. This is the pairs-trading argument (Gatev, Goetzmann and Rouwenhorst, 2006) applied to economically linked contracts.
+
+\textit{Definition.} Assets $a$ and $b$ are classified as twins on day $t$ if the correlation of their five-day price changes over all data up to $t$ (minimum 250 days) exceeds 0.8; three commodity pairs qualify. For each pair, with log spread $s_t=\ln P_{t,a}-\ln P_{t,b}$,
+\begin{equation}
+z_t=\frac{s_t-\bar s^{(250)}_t}{\operatorname{sd}^{(250)}_t(s)},\qquad
+f^{\mathrm{TW}}_{t,a}=-\tanh(z_t/2),\qquad f^{\mathrm{TW}}_{t,b}=+\tanh(z_t/2).
+\end{equation}
+The portfolio sells the relatively expensive leg and buys the cheap one, with no net exposure to the pair.
+
+\textit{Motivation.} Exploratory analysis showed that the 27 assets behave like roughly 13 independent ones, and that single-asset reversion is absent. The twin pairs supplied what reversion requires: an economic anchor for the price to return to. The rule was fixed in advance and its inclusion was decided on 1997--2009 data only.
+
+\section{Portfolio construction}
+The forecasts are combined in four steps, each controlling one source of risk.
+\begin{enumerate}
+\item \textbf{Equal risk across signals.} For signal $k$, let $\pi^k_t=\sum_i (f^k_{t-2,i}/\sigma_{t-2,i})\,\Delta P_{t,i}$ be its stand-alone P\&L and $s^k_t$ the 250-day standard deviation of $\pi^k$. The combined forecast is $F_t=\sum_k f^k_t/s^k_t$.
+\item \textbf{Equal risk across assets.} $\hat x_{t,i}=F_{t,i}/\sigma_{t,i}$.
+\item \textbf{Constant portfolio risk.} With $\Sigma_t$ the 250-day covariance matrix of price changes, $x^*_t=\hat x_t\big/\sqrt{\hat x_t^{\top}\Sigma_t\hat x_t}$, so ex-ante portfolio volatility is constant through time.
+\item \textbf{Execution smoothing.} $x_t=\alpha\,x^*_t+(1-\alpha)\,x_{t-1}$ with $\alpha=0.3$, balancing signal decay against transaction costs.
+\end{enumerate}
+No overlays, stops or discretionary caps are applied.
+
+\section{Results}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{lcccccc}
+\toprule
+ & ASR & 1997--2002 & 2002--2009 & 2009--2016 & Net exposure \\
+\midrule
+\textbf{BOMBASTRAT} & \textbf{1.11} & 1.34 & 1.24 & 0.63 & 0.00 \\
+Momentum only & 0.82 & 1.57 & 0.73 & 0.40 & 0.08 \\
+Inflation only & 0.72 & 0.52 & 0.92 & 0.41 & 0.02 \\
+Twins only & 0.45 & 0.93 & 0.21 & 0.41 & 0.00 \\
+Momentum and inflation, no twins & 1.01 & 1.14 & 1.29 & 0.48 & \\
+Long stocks and bonds, inverse-volatility & 0.94 & 0.63 & 0.82 & 1.00 & 1.00 \\
+Reference: sign of 50-day return & 0.32 & $-0.07$ & 0.55 & 0.28 & 0.02 \\
+\bottomrule
+\end{tabular}
+\caption{Adjusted Sharpe ratio net of costs with two-day lag. Net exposure is the evaluator's position bias (1 = always long).}
+\end{table}
+
+The portfolio Sharpe ratio is 1.20 net and 1.29 before costs; skewness is $-0.07$, kurtosis 4.12 and the average holding period 39 days. One additional day of implementation lag changes the Sharpe ratio from 1.20 to 1.19, so returns do not depend on short-term timing.
+
+\textbf{Diversification.} Pairwise correlations of the three signals' daily P\&L are $-0.06$, $-0.03$ and $0.01$. Removing any one signal lowers the score: to 0.86 without momentum, 0.92 without inflation and 1.01 without twins. Leadership rotates: momentum dominates 1997--2002, inflation 2002--2009, and twins contribute most in 2009--2016, lifting that period from 0.48 to 0.63.
+
+\textbf{Market neutrality.} In the two years in which a long position in stocks and bonds lost money, 2001 and 2008, the portfolio scored 2.14 and 1.20. With every price path inverted, the momentum component scores 0.87 against 0.82 on the original data: the result does not depend on the direction of market drift in the sample.
+
+\section{Robustness}
+\subsection{Falsification tests}
+\begin{table}[h]
+\centering\small
+\begin{tabular}{p{7.0cm}p{3.4cm}p{4.9cm}}
+\toprule
+Test & Result & Interpretation \\
+\midrule
+Inflation signal with CPI lagged one year & $-0.14$ (vs 0.72) & predictive content lies in timely data \\
+Inflation signal, each economy separately & positive in 5 of 5 & consistent across economies \\
+Inflation signal with another economy's CPI & 0.52 to 0.81 & a common global inflation factor \\
+Twin rule on 40 random non-twin pairs & mean $-0.06$, max 0.21 & requires a genuine economic link \\
+Positions on truncated vs full history & identical & no look-ahead bias \\
+Block bootstrap of daily P\&L, 90\% interval & 0.78 to 1.41 & significantly above zero \\
+Bootstrap probability of beating momentum alone & 96\% & the added signals contribute \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Parameter sensitivity}
+Each figure varies one parameter, or one pair, and re-evaluates the full portfolio. The framed cell marks the specification used; the smaller figures give the three sub-period scores.
+
+\begin{center}\includegraphics[width=0.84\linewidth]{fig_trend.png}\end{center}
+Fifteen single-crossover specifications from 8/16 to 128/1024 days score between 1.00 and 1.11. The chosen speeds lie inside a broad plateau.
+
+\begin{center}\includegraphics[width=0.66\linewidth]{fig_inflation.png}\end{center}
+Any equity horizon of 120 to 250 days yields 1.00 to 1.11 regardless of the bond horizon. Only a 20-day equity horizon degrades performance (0.63 to 0.75), consistent with equities pricing persistent rather than transitory inflation.
+
+\begin{center}\includegraphics[width=0.66\linewidth]{fig_twins.png}\end{center}
+Thresholds from 0.7 to 0.9 yield 1.00 to 1.15 for every spread window. At 0.6, economically unrelated pairs enter and the score falls to 0.81--0.87, replicating the placebo result. The best cell is not the one used.
+
+\begin{center}\includegraphics[width=\linewidth]{fig_1d.png}\end{center}
+Momentum lookback (1.03--1.11), inflation norm window (1.05--1.11), execution speed (1.02--1.11) and risk window (1.08--1.11) are similarly flat. At twice the stated transaction cost the score is 1.04.
+
+\section{Limitations}
+\begin{enumerate}
+\item Performance is weakest in 2009--2016 (0.63), when trend following was broadly unprofitable after the 2009 reversal and through the 2011--2012 risk-on/risk-off regime.
+\item The twin component rests on three pairs, of which beryllium contributes most; without it the score is 0.87.
+\item All three sub-periods were observed during development. Parameters were set in advance at round values and the inclusion of twins was decided on 1997--2009 only, but the out-of-sample period remains the only clean test.
+\end{enumerate}
+
+\section{Conclusion}
+BOMBASTRAT combines three textbook forecasts, each with a clear economic mechanism, into one market-neutral portfolio at constant risk. The components are uncorrelated, individually profitable and individually falsifiable, and the result is insensitive to their parameters. Its return comes from the signals, not from exposure to rising markets.
+
+\vspace{0.6em}
+{\small
+\textbf{References.}
+Gatev, E., Goetzmann, W.N., Rouwenhorst, K.G. (2006). Pairs trading: performance of a relative-value arbitrage rule. \textit{Review of Financial Studies} 19(3), 797--827.
+Hurst, B., Ooi, Y.H., Pedersen, L.H. (2017). A century of evidence on trend-following investing. \textit{Journal of Portfolio Management} 44(1), 15--29.
+Moskowitz, T.J., Ooi, Y.H., Pedersen, L.H. (2012). Time series momentum. \textit{Journal of Financial Economics} 104(2), 228--250.
+
+\textbf{Code.} \texttt{BOMBASTRAT/bombastrat.py} (model), \texttt{BOMBASTRAT/VALIDATION.md} (tests), \texttt{whitepaper/sweeps.py} (sensitivity).}
+\end{document}
