@@ -42,7 +42,7 @@
 - example data: train 0.71 / test 0.97 (full ~0.81)
 - 1d lag test: 0.84 (extra day delay doesn't hurt signal)
 - real futures (29 assets): test +0.20 (team baseline broke at -0.08)
-- 2024 data: test 0.64 (team baseline fell to 0.37)
+- stress test data: test 0.64 (team baseline fell to 0.37)
 
 ### Dropped / Didn't work
 - breakout: 95% same as ewmac, not worth running
