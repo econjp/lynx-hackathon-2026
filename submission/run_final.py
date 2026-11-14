@@ -19,7 +19,7 @@ sys.path.insert(0, str(ROOT))
 import polars as pl
 
 from src.goat_model import DATE, goat_positions
-import src.NOT_FINALMODEL_eemil as NOT_FINALMODEL_eemil
+from BOMBASTRAT.bombastrat import positions as bomba_positions
 
 
 def load(paths, closes_only=False):
@@ -51,21 +51,36 @@ def main():
     ap.add_argument("--macro", nargs="*", default=[], help="Path to in-sample and optional out-of-sample macro CSV")
     ap.add_argument("--out", default=str(ROOT / "submission" / "positions.csv"))
     ap.add_argument("--from-date", type=date.fromisoformat, default=None)
-    ap.add_argument("--model", choices=["goat", "NOT_FINALMODEL_eemil"], default="goat",
-                    help="Model architecture: 'goat' (Primary GOAT Model) or 'NOT_FINALMODEL_eemil' (Eemil candidate)")
+    ap.add_argument("--model", choices=["combo", "goat", "bomba", "NOT_FINALMODEL_eemil"], default="combo",
+                    help="Model architecture: 'combo' (50/50 GOAT + BOMBA), 'goat' (Pure GOAT), 'bomba' (Pure BOMBASTRAT)")
     a = ap.parse_args()
 
     prices = load(a.prices, closes_only=True)
 
     if a.model == "goat":
-        print("Executing Primary Model: The GOAT Model (Dual-Engine + 10% Deadband)...")
+        print("Executing: The GOAT Model (Dual-Engine + 10% Deadband)...")
         pos = goat_positions(prices)
-    else:
-        print("Executing Exploratory Candidate: NOT_FINALMODEL_eemil (Trend + CPI + Twins)...")
+    elif a.model in ("bomba", "NOT_FINALMODEL_eemil"):
+        print("Executing: BOMBASTRAT (Trend + Inflation CPI + Twins)...")
         if not a.macro:
-            sys.exit("Error: --macro is required for NOT_FINALMODEL_eemil")
+            sys.exit("Error: --macro is required for BOMBASTRAT")
         macro = load(a.macro)
-        pos = NOT_FINALMODEL_eemil.final_positions(prices, macro)
+        pos = bomba_positions(prices, macro)
+    elif a.model == "combo":
+        if not a.macro:
+            print("Warning: --macro not provided for combo; falling back gracefully to 100% GOAT Model.")
+            pos = goat_positions(prices)
+        else:
+            print("Executing: 50/50 Multi-Strategy Ensemble (GOAT + BOMBASTRAT)...")
+            pos_goat = goat_positions(prices)
+            macro = load(a.macro)
+            pos_bomba = bomba_positions(prices, macro)
+            cols = [c for c in pos_goat.columns if c != DATE]
+            pos = pos_goat.select(DATE).with_columns([
+                (0.50 * pos_goat[c] + 0.50 * pos_bomba[c]).alias(c) for c in cols
+            ])
+    else:
+        sys.exit(f"Unknown model: {a.model}")
 
     assert pos.columns == prices.columns and len(pos) == len(prices)
     assert pos.null_count().sum_horizontal()[0] == 0
