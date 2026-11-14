@@ -2,6 +2,18 @@
 
 All numbers come from `TABLES.md`, built by `make_tables.py` from the raw Lynx data.
 Check them yourself: `python research/jaakko/pitch/make_tables.py` (~10 s).
+Data analysis: `DATA.md`, built by `data_analysis.py`.
+
+## 0. What the data looks like (1 min) -> DATA.md
+- 27 assets, 1995-2016: 5 planets x (bonds, stocks, fx vs titan) + 13 commodities
+- clean data: no bad OHLC bars, few jumps (0-7 days > 6 sigma per asset)
+- most commodities fall a lot (1.0 -> 0.04-0.3): long downtrends, so the short side matters (D1)
+- bonds and stocks move opposite (-0.2 to -0.3 on every planet), commodities barely correlate (0.09) (D2, D3)
+- trend exists: past 12m direction gets next month right 56-57% for stocks and bonds, 53% fx,
+  only 51% commodities (D4)
+- macro: 60d GDP/CPI change barely predicts the planet's next 60 days (|corr| <= 0.22, noise level).
+  CPI moves WITH stocks the same period (0.2-0.44), which is not a forecast (D7)
+- high-low range vol is a steady ~80% of close vol -> Parkinson vol would barely change sizing (D8)
 
 ## 1. The idea (30 s)
 - follow trends at a few speeds at once
@@ -28,11 +40,15 @@ Check them yourself: `python research/jaakko/pitch/make_tables.py` (~10 s).
 - placebo (signal shifted in time): 0.28 on average, best of 10 = 0.49, vs 0.80 real
 - 25 of 27 assets make money
 
+- money comes from every class: bonds 24%, stocks 26%, fx 20%, commodities 30% of P&L (D5)
+- positive in 16 of 21 years, worst years 2006, 2009, 2012 (D6)
+
 ## 5. Weak spots (be upfront)
 - scores fall over time (1.17 -> 0.40). trend is weaker in the latest period
 - negative skew (-0.15), max drawdown ~2 years of vol
 - all trend signals are 0.7-0.9 correlated (T5) -> another trend signal adds little
 
 ## 6. What the team should add next
-- something NOT trend: macro per planet (GDP/CPI per planet vs its bonds, stocks, FX)
+- something NOT trend. macro per planet is the obvious candidate, but D7 shows the simple version
+  doesn't predict -> needs a better idea (levels, differences between planets), not just momentum
 - sizing and execution tests on top of this signal (vol estimate, glide speed)
