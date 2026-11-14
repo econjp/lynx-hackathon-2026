@@ -23,11 +23,31 @@ All strategy models, data analysis, and teammate idea backtests are verified usi
 👉 **[Open Complete Findings Summary (research/jaakko/FINDINGS.md)](./research/jaakko/FINDINGS.md)**  
 👉 **[Open Teammate Verification Report (research/jaakko/pitch/TEAM_CHECKS.md)](./research/jaakko/pitch/TEAM_CHECKS.md)**
 
-### Final combined model (trend + inflation + twins, one portfolio)
-👉 **[Notebook: plots, performance table, validation](./research/eemil/final_combined/final_model.ipynb)**  
-👉 **[Results tables](./research/eemil/final_combined/FINAL_RESULTS.md)** · **[Next steps](./research/eemil/final_combined/NEXT_STEPS.md)** · model: `src/final_model.py` · submission: `submission/run_final.py`
+### 🏆 The GOAT Model (Official Primary Model)
+👉 **[Interactive Walkthrough Notebook (research/jaakko/strategy_walkthrough.ipynb)](./research/jaakko/strategy_walkthrough.ipynb)**  
+👉 **[GOAT Model Production Code (src/goat_model.py)](./src/goat_model.py)** · Runner: submission/run_final.py · Official Submission: submission/positions_insample.csv
 
-### Key Results at a Glance (earlier Dual-Engine work):
+The **GOAT Model** deploys our Dual-Engine quantitative architecture:
+1. **Engine 1 (Equities & Bonds Core)**: Kristofer's EMA 10/100 with an active 3-close ratchet trailing stop on 10 sovereign bonds and stocks. Captures equity/bond growth while cutting left-tail risk (+0.29 Sharpe boost during crashes, kurtosis trimmed to 4.3).
+2. **Engine 2 (Relative Value & Short Sleeve)**: 12-month Sector-Neutral Cross-Sectional Momentum across all 27 planetary futures. Ranks winners vs losers, automatically shorting collapsing commodities (which fell 70–90%) and balancing portfolio beta.
+3. **Layer 4 Execution & Friction Shield**: 10% rebalancing deadband cancelling 72% of noisy trades and 25% exponential glide, delivering an **average holding period of 61.6 days** and retaining 98% of gross alpha under Lynx's 2-day lag and 0.02 slippage.
+
+#### Official Lynx Evaluator Verification (submission/positions_insample.csv):
+* **Full Period Adjusted Sharpe**: **1.137** (Nominal Sharpe: **1.317**)
+* **1995–2002**: **1.199** Adjusted Sharpe
+* **2002–2009**: **1.117** Adjusted Sharpe
+* **2009–2016**: **1.007** Adjusted Sharpe
+* **Regime Consistency**: **> 1.00 Adjusted Sharpe across EVERY single 7-year era**.
+* **Average Holding Period**: **61.6 days** | **Excess Kurtosis**: **4.33** | **Trades Skipped**: **72.0%**
+
+---
+
+### Exploratory Research Candidate (NOT_FINALMODEL: Eemil 3-Sleeve Trend + Inflation + Twins)
+👉 **[Candidate Notebook: exploratory validation](./research/eemil/final_combined/final_model.ipynb)**  
+👉 **[Candidate Results tables](./research/eemil/final_combined/FINAL_RESULTS.md)** · Candidate Code: src/NOT_FINALMODEL_eemil.py (Run via submission/run_final.py --model NOT_FINALMODEL_eemil)
+
+---
+
 1. **The Dual-Engine Strategy (Kristofer's Stop + Cross-Sectional Momentum)**:
    - **Engine 1 (Equities & Bonds Core)**: Kristofer's EMA 10/100 with a 3-close ratchet trailing stop on 10 sovereign bonds and stocks. Captures equity/bond growth while cutting left-tail risk (+0.07 Sharpe boost, kurtosis trimmed to 5.2).
    - **Engine 2 (Relative Value & Short Sleeve)**: 12-month Cross-Sectional Momentum across all 27 planetary futures. Ranks winners vs losers, automatically shorting collapsing commodities (which fell 70–90%) and balancing portfolio beta.
