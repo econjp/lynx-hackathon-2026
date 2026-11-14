@@ -6,6 +6,19 @@ Code and research repository for the Stockholm Lynx Hackathon (Nov 14).
 
 ---
 
+## 📰 Lynx Hackathon Live Journey & Team Journal
+
+### 📸 12:05 — Team Lunch Supply Drop & Signal Generation Milestone
+> **Milestone Achieved**: Signal generation is officially locked in! We agreed on the **Dual-Engine architecture** pairing **Kristofer's EMA 10/100 Stretch Stop** (riding equity/bond bull drift with an active crash filter) and **12m Sector-Neutral Cross-Sectional Momentum** (shorting decaying commodities and hedging market beta). Clean **> 1.00 Adjusted Sharpe across all three 7-year eras** with bit-level execution parity confirmed.
+> 
+> Right at 12:05, the essential hackathon fuel arrived: hot foil wraps, fresh bananas, apples, ice-cold Coca-Cola, Fanta, and Ramlösa sparkling water. Brains refueled and morale high—ready to tackle the afternoon execution layers (10% rebalance deadband and weekly covariance)! 🌯🍎⚡
+
+<p align="center">
+  <img src="./assets/team_lunch_1205.jpg" alt="Team Lunch Supply Drop 12:05" width="650" />
+</p>
+
+---
+
 ## 🚀 Live Research Dashboard (Hack Day Nov 14)
 
 All strategy models, data analysis, and teammate idea backtests are verified using Lynx's official evaluator on `data/close_prices_insample.csv`.
