@@ -25,9 +25,15 @@ import src.NOT_FINALMODEL_eemil as NOT_FINALMODEL_eemil
 def load(paths, closes_only=False):
     frames = []
     for p in paths:
-        df = pl.read_csv(p, try_parse_dates=True)
+        with open(p) as fh:
+            sep = ";" if ";" in fh.readline() else ","
+        df = pl.read_csv(p, separator=sep, try_parse_dates=True)
         df = df.rename({c: DATE for c in df.columns if c.lower() in ("asofdate", "date", "dates")})
+        if df.schema[DATE] == pl.String:
+            df = df.with_columns(pl.coalesce(pl.col(DATE).str.to_date("%d.%m.%Y", strict=False),
+                                             pl.col(DATE).str.to_date("%Y-%m-%d", strict=False)).alias(DATE))
         df = df.with_columns(pl.col(DATE).cast(pl.Date), pl.exclude(DATE).cast(pl.Float64, strict=False))
+        df = df.select([c for c in df.columns if c == DATE or df[c].null_count() < len(df)])  # drop empty/junk columns
         if closes_only and any(c.endswith("|Close") for c in df.columns):
             df = df.select(DATE, *[pl.col(c).alias(c.split("|")[0]) for c in df.columns if c.endswith("|Close")])
         frames.append(df)
