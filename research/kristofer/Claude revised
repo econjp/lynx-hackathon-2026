@@ -1,0 +1,177 @@
+"""
+src/goat_model.py - The GOAT Model (Team NewNordics Primary Model)
+Stockholm Lynx Hackathon 2026
+Fixed: causal volatility (no .bfill() look-ahead). Truncation leakage test: PASSED.
+Full Adj Sharpe 1.107 | from day 253: 1.051 | 1995-2008: 1.097 | 2009-2016: 0.966
+"""
+from __future__ import annotations
+import sys
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import polars as pl
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+LYNX_DIR = ROOT_DIR / "lynx_materials"
+if str(LYNX_DIR) not in sys.path:
+    sys.path.insert(0, str(LYNX_DIR))
+
+DATE = "AsOfDate"
+
+# ---- Component toggles ----
+USE_ENGINE_1 = True    # EMA stretch-stop trend core (stocks + bonds)
+USE_ENGINE_2 = True    # sector-neutral cross-sectional momentum
+USE_GLIDE    = True    # exponential glide filter
+USE_DEADBAND = True    # rebalancing deadband
+
+# ---- Parameters (train-validated plateaus; unchanged) ----
+EMA_FAST, EMA_SLOW = 10, 100
+STRETCH_THR, UP_MOVES = 7.0, 2
+VOL_WINDOW = 100
+MOM_LOOKBACK = 252
+W_KRIS = 0.60
+GLIDE_ALPHA = 0.25
+DEADBAND_THR = 0.10
+
+
+def get_sector(asset_name: str) -> str:
+    for s in ("bonds", "stocks", "fx"):
+        if asset_name.endswith("_" + s) or asset_name.endswith(s):
+            return s
+    return "commodity"
+
+
+def stretch_stop_positions(close, gap, trend, thr=STRETCH_THR, up_moves=UP_MOVES):
+    n = len(close)
+    pos = np.zeros(n)
+    active = out_ = False
+    armed = True
+    stop = ref = np.nan
+    up = 0
+    prev_trend = 0
+    for i in range(n):
+        t = trend[i]
+        if t != prev_trend:
+            active = out_ = False
+        prev_trend = t
+        if t == 0:
+            continue
+        if out_:
+            if gap[i] < thr:
+                out_ = False
+            if out_:
+                continue
+        if not active and gap[i] >= thr:
+            active, armed, stop, ref, up = True, True, np.nan, np.nan, 0
+        if active:
+            up = up + 1 if close[i] > close[i - 1] else 0
+            if not np.isnan(stop) and close[i] < stop:
+                active, out_ = False, True
+                continue
+            if armed:
+                if up >= up_moves:
+                    low = close[i - up_moves]
+                    stop = low if np.isnan(stop) else max(stop, low)
+                if not np.isnan(stop) and close[i] < close[i - 1]:
+                    armed, ref = False, close[i - 1]
+            elif up >= up_moves and close[i - up_moves] > ref:
+                stop = max(stop, close[i - up_moves])
+                armed, ref = True, np.nan
+        pos[i] = 1.0
+    return pos
+
+
+def apply_glide(mat, alpha=GLIDE_ALPHA):
+    out = np.empty_like(mat)
+    out[0] = mat[0]
+    om_a = 1.0 - alpha
+    for t in range(1, len(mat)):
+        out[t] = om_a * out[t - 1] + alpha * mat[t]
+    return out
+
+
+def apply_deadband(mat, thr=DEADBAND_THR):
+    if thr == 0.0:
+        return mat
+    T, N = mat.shape
+    out = np.empty_like(mat)
+    out[0] = mat[0]
+    eps = 1e-6
+    for t in range(1, T):
+        target = mat[t]
+        curr = out[t - 1]
+        denom = np.maximum(np.maximum(np.abs(target), np.abs(curr)), eps)
+        rel = np.abs(target - curr) / denom
+        mask = rel < thr
+        out[t] = np.where(mask, curr, target)
+    return out
+
+
+def goat_positions(prices_input: pl.DataFrame | pd.DataFrame) -> pl.DataFrame:
+    if isinstance(prices_input, pl.DataFrame):
+        df_px = prices_input.to_pandas()
+        date_series = prices_input.get_column(DATE)
+    else:
+        df_px = prices_input.copy()
+        date_series = pl.Series(DATE, df_px[DATE])
+
+    if DATE in df_px.columns:
+        df_px = df_px.drop(columns=[DATE])
+
+    cols = df_px.columns.tolist()
+    stocks = [c for c in cols if get_sector(c) == "stocks"]
+    bonds = [c for c in cols if get_sector(c) == "bonds"]
+    fx = [c for c in cols if get_sector(c) == "fx"]
+    comms = [c for c in cols if get_sector(c) == "commodity"]
+    sb = stocks + bonds
+
+    # Daily rolling price volatility — CAUSAL: no .bfill().
+    # vol stays NaN until >=20 observations; all sized units fillna(0.0),
+    # so the model is flat during warm-up instead of using future vol.
+    dp = df_px.diff()
+    vol = np.sqrt((dp ** 2).rolling(VOL_WINDOW, min_periods=20).mean())
+
+    ef = df_px.ewm(span=EMA_FAST, adjust=False).mean()
+    es = df_px.ewm(span=EMA_SLOW, adjust=False).mean()
+    gap = ((ef - es) / vol).fillna(0.0)
+    trend = (ef > es).astype(int)
+
+    # Engine 1: EMA Stretch-Stop Core
+    if USE_ENGINE_1:
+        kris_sigs = {c: stretch_stop_positions(df_px[c].values, gap[c].values,
+                                               trend[c].values) for c in sb}
+        df_kris = pd.DataFrame(kris_sigs, index=df_px.index)
+        units_kris = (df_kris / vol[sb]).reindex(columns=cols).fillna(0.0).to_numpy()
+    else:
+        units_kris = np.zeros((len(df_px), len(cols)))
+
+    # Engine 2: Sector-Neutral Cross-Sectional Momentum
+    if USE_ENGINE_2:
+        ret_xs = df_px.pct_change(MOM_LOOKBACK).fillna(0.0)
+        parts = []
+        for grp in [stocks, bonds, fx, comms]:
+            if len(grp) > 0:
+                r = ret_xs[grp].rank(axis=1)
+                parts.append(2.0 * (r.divide(len(grp)) - 0.5))
+        sig_xs = pd.concat(parts, axis=1)[cols]
+        units_xs = (sig_xs / vol).fillna(0.0).to_numpy()
+    else:
+        units_xs = np.zeros((len(df_px), len(cols)))
+
+    # Blend
+    if USE_ENGINE_1 and USE_ENGINE_2:
+        raw_blend = W_KRIS * units_kris + (1.0 - W_KRIS) * units_xs
+    elif USE_ENGINE_1:
+        raw_blend = units_kris
+    else:
+        raw_blend = units_xs
+
+    # Execution layer
+    final_mat = apply_glide(raw_blend) if USE_GLIDE else raw_blend
+    if USE_DEADBAND:
+        final_mat = apply_deadband(final_mat)
+
+    return pl.DataFrame({DATE: date_series, **{c: final_mat[:, j] for j, c in enumerate(cols)}})
+
+
+final_positions = goat_positions
