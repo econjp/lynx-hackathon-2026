@@ -14,7 +14,11 @@ All strategy models, data analysis, and teammate idea backtests are verified usi
 👉 **[Open Complete Findings Summary (research/jaakko/FINDINGS.md)](./research/jaakko/FINDINGS.md)**  
 👉 **[Open Teammate Verification Report (research/jaakko/pitch/TEAM_CHECKS.md)](./research/jaakko/pitch/TEAM_CHECKS.md)**
 
-### Key Results at a Glance:
+### Final combined model (trend + inflation + twins, one portfolio)
+👉 **[Notebook: plots, performance table, validation](./research/eemil/final_combined/final_model.ipynb)**  
+👉 **[Results tables](./research/eemil/final_combined/FINAL_RESULTS.md)** · **[Next steps](./research/eemil/final_combined/NEXT_STEPS.md)** · model: `src/final_model.py` · submission: `submission/run_final.py`
+
+### Key Results at a Glance (earlier Dual-Engine work):
 1. **The Dual-Engine Strategy (Kristofer's Stop + Cross-Sectional Momentum)**:
    - **Engine 1 (Equities & Bonds Core)**: Kristofer's EMA 10/100 with a 3-close ratchet trailing stop on 10 sovereign bonds and stocks. Captures equity/bond growth while cutting left-tail risk (+0.07 Sharpe boost, kurtosis trimmed to 5.2).
    - **Engine 2 (Relative Value & Short Sleeve)**: 12-month Cross-Sectional Momentum across all 27 planetary futures. Ranks winners vs losers, automatically shorting collapsing commodities (which fell 70–90%) and balancing portfolio beta.
