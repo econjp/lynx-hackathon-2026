@@ -1,0 +1,150 @@
+"""
+Downtrend short strategy (shorts only)
+======================================
+
+Entry:  short after price has closed below the 200-day EMA for DAYS_BELOW
+        days in a row (default 50) -> the market is classified as a downtrend.
+Exits:  1) mirrored 3-close trailing stop: 3 falling closes in a row -> stop goes
+           above the highest (first) of them; it only moves down, never up;
+           a higher close pauses it until 3 falling closes below that reference
+        2) initial stop at the highest close of the last 20 days
+        3) a close back above the 200-day EMA (downtrend over)
+
+Engine (Lynx hackathon rules): daily closes, 2-day execution lag, 1/vol sizing,
+cost DELTA x |change in position|, score = net Adjusted Sharpe.
+
+Usage:
+    pip install pandas numpy matplotlib
+    python downtrend_short_backtest.py close_prices_insample.csv
+"""
+
+import sys
+
+import numpy as np
+import pandas as pd
+
+# ============================ Settings ============================
+CSV_FILE = sys.argv[1] if len(sys.argv) > 1 else "close_prices_insample.csv"
+ASSET_SUFFIXES = ("_stocks",)     # stocks only (bond shorts lose money)
+
+EMA_LEN = 200
+DAYS_BELOW = 50                   # consecutive closes below EMA200 to enter
+
+USE_TRAIL = True                  # on/off: mirrored 3-close trailing stop
+UP_MOVES = 2                      # 2 = 3 falling closes in a row
+USE_INIT_STOP = True              # on/off: initial stop at recent highest close
+INIT_STOP_DAYS = 20
+USE_EXIT_ABOVE_EMA = True         # on/off: cover on a close back above EMA200
+
+USE_VOL_SIZING = True             # on/off: 1/vol position sizing
+VOL_WINDOW = 100
+USE_COSTS = True                  # on/off: transaction costs
+DELTA = 0.0002
+
+WARMUP = 400
+SHOW_PLOT = True
+
+
+# ============================ Data ============================
+def load_prices(path):
+    px = pd.read_csv(path, sep=";")
+    px = px.loc[:, ~px.columns.str.startswith("Unnamed")]
+    px["AsOfDate"] = pd.to_datetime(px["AsOfDate"], format="%d.%m.%Y")
+    return px.set_index("AsOfDate").sort_index()
+
+
+# ============================ Signal ============================
+def short_positions(c, ema, entry):
+    """Daily position (-1 or 0) for one asset. Uses only data up to each day."""
+    n = len(c)
+    pos = np.zeros(n)
+    x = -c                                    # mirror prices: a falling close is a "rising" x
+    in_pos = False
+    for i in range(1, n):
+        if not in_pos:
+            if entry[i]:
+                in_pos, armed, ref, up = True, True, np.nan, 0
+                stop = -c[max(0, i - INIT_STOP_DAYS + 1): i + 1].max() if USE_INIT_STOP else np.nan
+                pos[i] = -1
+            continue
+
+        up = up + 1 if x[i] > x[i - 1] else 0
+        if USE_EXIT_ABOVE_EMA and c[i] > ema[i]:          # downtrend over
+            in_pos = False
+            continue
+        if not np.isnan(stop) and x[i] < stop:            # close above the stop
+            in_pos = False
+            continue
+        if USE_TRAIL:
+            if armed:
+                if up >= UP_MOVES:
+                    s = x[i - UP_MOVES]
+                    stop = s if np.isnan(stop) else max(stop, s)
+                if up == 0 and x[i] < x[i - 1] and not np.isnan(stop):
+                    armed, ref = False, x[i - 1]          # sequence broke -> pause
+            elif up >= UP_MOVES and x[i - UP_MOVES] > ref:
+                stop = max(stop, x[i - UP_MOVES])         # re-arm
+                armed, ref = True, np.nan
+        pos[i] = -1
+    return pos
+
+
+def build_signals(px):
+    ema = px.ewm(span=EMA_LEN, adjust=False).mean()
+    below = (px < ema).astype(int)
+    streak = below.apply(lambda s: s.groupby((s != s.shift()).cumsum()).cumsum() * s)
+    entry = streak == DAYS_BELOW                          # the day the downtrend is confirmed
+    return pd.DataFrame({c: short_positions(px[c].to_numpy(), ema[c].to_numpy(), entry[c].to_numpy())
+                         for c in px.columns}, index=px.index)
+
+
+# ============================ Engine ============================
+def backtest(px, signal):
+    dp = px.diff()
+    vol = np.sqrt((dp ** 2).rolling(VOL_WINDOW).mean())
+    X = signal / vol if USE_VOL_SIZING else signal.astype(float)
+    X = X.replace([np.inf, -np.inf], 0).fillna(0)
+    x2, x3 = X.shift(2), X.shift(3)                       # 2-day execution lag
+    net = x2 * dp - (DELTA * (x2 - x3).abs() if USE_COSTS else 0.0)
+    return net.iloc[WARMUP:], signal.iloc[WARMUP:]
+
+
+def adj_sharpe(pnl):
+    p = pnl.dropna()
+    mu, sd = p.mean(), p.std(ddof=0)
+    sr = mu / sd * np.sqrt(252)
+    sk = ((p - mu) ** 3).mean() / sd ** 3
+    ku = ((p - mu) ** 4).mean() / sd ** 4
+    return sr * (1 + sk / 6 * sr - (ku - 3) / 24 * sr ** 2), sk, ku
+
+
+# ============================ Run ============================
+def main():
+    px = load_prices(CSV_FILE)
+    px = px[[c for c in px.columns if c.endswith(ASSET_SUFFIXES)]]
+    print(f"{px.shape[1]} assets: {', '.join(px.columns)}\n")
+
+    sig = build_signals(px)
+    net, s = backtest(px, sig)
+    trades = ((s != 0).astype(int).diff() == 1).sum()
+
+    print("Per asset:")
+    for c in px.columns:
+        print(f"  {c:22s} Adj. Sharpe {adj_sharpe(net[c])[0]:6.2f}   trades {trades[c]}")
+
+    port = net.sum(axis=1)
+    adj, sk, ku = adj_sharpe(port)
+    mid = port.index[len(port) // 2]
+    print(f"\nPORTFOLIO  Adj. Sharpe {adj:.2f}  (skew {sk:.2f}, kurtosis {ku:.2f})")
+    print(f"  1st / 2nd half: {adj_sharpe(port[:mid])[0]:.2f} / {adj_sharpe(port[mid:])[0]:.2f}")
+    print(f"  Trades {trades.sum()}, time in a short {(s != 0).mean().mean():.0%}")
+
+    if SHOW_PLOT:
+        import matplotlib.pyplot as plt
+        port.cumsum().plot(title=f"Downtrend shorts, net equity (Adj. Sharpe {adj:.2f})", figsize=(10, 5))
+        plt.tight_layout()
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()
