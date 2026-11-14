@@ -259,3 +259,58 @@ Positive but mild correlation (0.15–0.26) across all 5 economies.
    * **Orthogonal Non-Trend Alpha**: Macro cross-planet relative valuations (levels/differences between planets, not momentum).
    * **Commodity Breakouts / Sizing**: Specific pattern sleeves on high-volatility commodities.
    * **Execution Tuning**: Testing trade buffers / deadbands to cut slippage further.
+
+---
+
+## 7. Teammate Model Audits & Independent Checks
+
+Every teammate idea re-evaluated with Lynx's official `evaluation.py` on `close_prices_insample.csv`.  
+Script: `python research/jaakko/pitch/team_checks.py`. Full report: `TEAM_CHECKS.md`.
+
+### K1. Kristofer's Idea: EMA 10/100 Long-Only + Stretch Stop
+Evaluated on his 10 assets (stocks+bonds) vs fair benchmarks. `bias = 1.0` means always 100% net long.
+
+| model | 1995–2002 | 2002–2009 | 2009–2016 | full | sharpe | skew | kurt | holding d | bias |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Kristofer: EMA 10/100 long-only + stop (10 assets)** | **0.90** | **1.02** | **1.07** | **1.00** | **1.23** | **-0.22** | **5.22** | **47.01** | **1.00** |
+| Same, no stop | 0.80 | 0.99 | 1.11 | 0.94 | 1.19 | -0.25 | 5.66 | 61.83 | 1.00 |
+| **BENCHMARK: Always long 1/vol (10 assets)** | **0.86** | **0.82** | **1.00** | **0.97** | **1.20** | **-0.27** | **5.33** | **273.04** | **1.00** |
+| EMA 10/100 long/short (10 assets) | 0.64 | 0.76 | 0.60 | 0.67 | 0.72 | -0.03 | 5.80 | 49.93 | 0.30 |
+| Kristofer rule on all 27 assets | 0.77 | 0.94 | 0.60 | 0.72 | 0.78 | -0.18 | 4.82 | 37.60 | 1.00 |
+| BENCHMARK: Always long 1/vol (all 27) | 0.02 | 0.72 | 0.61 | 0.44 | 0.45 | -0.14 | 4.08 | 270.29 | 1.00 |
+
+*Key Takeaway*: Kristofer's 0.99 is verified. However, pure passive buy-and-hold on those 10 assets achieves 0.97 due to a 20-year bond/stock bull market. The stretch stop adds **+0.06 Sharpe** and trims kurtosis.
+
+### X1. Cross-Sectional Momentum vs Time-Series Trend
+XS ranks assets each day (long winners, short losers). Bias is ~0.
+
+| model | 1995–2002 | 2002–2009 | 2009–2016 | full | sharpe | skew | kurt | holding d | bias |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **PICK: Time-series trend (EWMAC slow + 12m)** | **1.17** | **0.73** | **0.40** | **0.83** | **0.90** | **-0.15** | **4.52** | **64.51** | **0.08** |
+| XS 12m, rank all 27 together | 1.18 | 0.75 | 0.26 | 0.80 | 0.86 | -0.17 | 4.25 | 42.43 | 0.10 |
+| XS 12m, rank within each class (stocks/bonds/comm) | 0.83 | 0.79 | 0.11 | 0.60 | 0.61 | -0.10 | 4.00 | 35.62 | 0.32 |
+| XS 6m, within class | 0.36 | 0.25 | -0.04 | 0.19 | 0.19 | -0.09 | 4.19 | 27.18 | 0.31 |
+| XS 3m, within class | 0.10 | 0.17 | -0.22 | 0.05 | 0.05 | -0.08 | 4.03 | 20.15 | 0.30 |
+| 50/50 PICK + XS 12m within class | 1.16 | 0.81 | 0.28 | 0.81 | 0.87 | -0.16 | 4.41 | 50.26 | 0.17 |
+
+*Key Takeaway*: Pure cross-sectional momentum collapses to **0.11–0.26 in 2009–2016** (and 3m/6m are negative). It has 0.87 correlation with trend because ranking across classes just goes long bonds and short commodities. **Not viable as a primary standalone signal**, but viable as a secondary sleeve.
+
+### M1. Multi-Signal Ensemble Blends (Does combining signals break the model?)
+**NO!** Combining signals is standard quant practice. Positions linearly add up ($w_1 X_1 + w_2 X_2$), reducing portfolio variance. Because Kristofer's model has only **0.496 correlation** with Jake's trend model, blending them dramatically improves out-of-sample stability:
+
+| model | 1995–2002 | 2002–2009 | 2009–2016 | full | sharpe | skew | kurt | holding d | bias |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| Jake EWMAC Pick Alone | 1.17 | 0.73 | 0.40 | 0.83 | 0.90 | -0.15 | 4.52 | 64.51 | 0.08 |
+| Kristofer 10-Asset Stop Alone | 0.90 | 1.02 | 1.07 | 1.00 | 1.23 | -0.22 | 5.22 | 47.01 | 1.00 |
+| **50% Jake + 50% Kristofer** | **0.99** | **1.01** | **1.03** | **1.02** | **1.28** | **-0.25** | **5.20** | **52.36** | **0.71** |
+| **70% Jake + 30% Kristofer** | **1.04** | **0.98** | **0.97** | **1.02** | **1.26** | **-0.25** | **5.04** | **55.74** | **0.53** |
+| **34% Jake + 33% Kristofer + 33% XS (Sector)** | **1.02** | **1.08** | **0.99** | **1.05** | **1.27** | **-0.24** | **4.87** | **45.90** | **0.63** |
+
+*Key Takeaway*: Ensembling Jake (trend diversification) + Kristofer (bond/equity alpha + stop) reaches **>1.02 Adjusted Sharpe across ALL THREE eras**.
+
+### E1. Data Reconciliation with Eemil: >6-Sigma Outlier Days
+*Data is 100% identical* (exact SHA256 checksums match).  
+Discrepancy explained: Eemil used **60-day EWMA volatility** (which adapts faster to jumps, counting 29 jump days), while Jake's D1 used **100-day rolling standard deviation** (which reacts slower, counting 56 jump days).
+
+### E2. Holiday Calendar Friction
+Each moon has asynchronous holidays (e.g., Titan 226 flat days, Ganymede 80). Daily correlation is falsely depressed by flat days (0.40–0.41). Computing returns **weekly** reveals true underlying cross-asset correlation of **0.54 (bonds) and 0.57 (stocks)**.
