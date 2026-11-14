@@ -5,6 +5,7 @@ Stockholm Lynx Hackathon. **Team:** Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik 
 | folder | what |
 |---|---|
 | **[`SUBMISSION/`](./SUBMISSION/)** | the final submission: model, leak test, positions. Start here |
+| **[`FINAL_BACKTEST.ipynb`](./FINAL_BACKTEST.ipynb)** | end-to-end check of `SUBMISSION/`: positions, leak tests, hand-off rehearsal, score, charts |
 | [`WORK_DUMP/`](./WORK_DUMP/) | all research, earlier models, audits and notes |
 | `data/` | the in-sample files from Lynx |
 | `lynx_materials/` | Lynx's instructions and evaluator |
