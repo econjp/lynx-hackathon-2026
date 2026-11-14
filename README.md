@@ -24,6 +24,11 @@ All strategy models, data analysis, and teammate idea backtests are verified usi
 👉 **[Open Complete Findings Summary (research/jaakko/FINDINGS.md)](./research/jaakko/FINDINGS.md)**  
 👉 **[Open Teammate Verification Report (research/jaakko/pitch/TEAM_CHECKS.md)](./research/jaakko/pitch/TEAM_CHECKS.md)**
 
+### 💣 BOMBASTRAT (candidate: three forecasts, one portfolio, no market bet)
+👉 **[BOMBASTRAT/README.md](./BOMBASTRAT/README.md)**: 2-minute walkthrough, table against Lynx's grading criteria, charts, BOMBASTRAT vs GOAT side by side · model: `BOMBASTRAT/bombastrat.py`
+
+---
+
 ### 🏆 The GOAT Model (Official Primary Model)
 👉 **[Interactive Walkthrough Notebook (research/jaakko/strategy_walkthrough.ipynb)](./research/jaakko/strategy_walkthrough.ipynb)**  
 👉 **[GOAT Model Production Code (src/goat_model.py)](./src/goat_model.py)** · Runner: submission/run_final.py · Official Submission: submission/positions_insample.csv
