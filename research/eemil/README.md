@@ -1,5 +1,18 @@
 # Eemil's research: validation harness + a no-picking trend model
 
+## Real data: does the effect exist? (`explore_effects.ipynb`)
+Exploration of the Lynx data (27 assets + GDP/CPI per moon) before any backtest, family by family:
+trend, short-term reversion, relative value, lead-lag, macro, OHLC. Every effect is checked in three
+eras and across assets, with causal (lookahead-free) features. Runs in about a minute.
+
+- **Inflation predicts bonds and stocks** of the same moon, in all 5 moons and all 3 eras. Main new signal.
+- **Trend is real in every asset class but fades** in 2009-16.
+- **Trend and inflation are uncorrelated**: an untuned blend scores ~1.0 adjusted Sharpe vs 0.87 for trend alone.
+- **Dead ends:** short-term reversion, lead-lag, OHLC features, GDP.
+- **Twin commodity spreads:** small optional extra; two of three pairs revert, one trends.
+
+Scoreboard and who does what next: section 11 of the notebook.
+
 ## Run
 ```bash
 python research/eemil/validate.py [prices.csv]   # all team models side by side (~1 min)
