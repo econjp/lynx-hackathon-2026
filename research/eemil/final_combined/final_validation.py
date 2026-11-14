@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 
 import evaluation as ev
 import validate as va                                   # research/eemil/validate.py
-from src import final_model as fm
+from src import NOT_FINALMODEL_eemil as fm        # the trend + inflation + twins model (was src/final_model.py)
 
 DATE = "AsOfDate"
 prices = pl.read_csv(ROOT / "data" / "close_prices_insample.csv", try_parse_dates=True).with_columns(pl.col(DATE).cast(pl.Date))
