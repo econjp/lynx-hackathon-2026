@@ -15,19 +15,19 @@ All strategy models, data analysis, and teammate idea backtests are verified usi
 👉 **[Open Teammate Verification Report (research/jaakko/pitch/TEAM_CHECKS.md)](./research/jaakko/pitch/TEAM_CHECKS.md)**
 
 ### Key Results at a Glance:
-1. **Core Trend Pick (EWMAC slow + 12m momentum)**:
-   - Positive across all three 7-year regimes: **1.17** (1995–02) / **0.73** (2002–09) / **0.40** (2009–16), full-period **0.80–0.83**.
-   - Holding time ~65 days (safely avoids 2-day lag and slippage penalties). Passes causality leak test.
-2. **Kristofer's Model (EMA 10/100 + Stretch Stop)**:
-   - Scored **0.993 Adjusted Sharpe** on 10 stocks+bonds.
-   - The trailing stop adds **+0.07 Sharpe** and cuts tail risk.
-   - Low correlation with trend (**0.496**). **50/50 Blend pushes full Sharpe to 1.02**!
-3. **Cross-Sectional Momentum**:
-   - Ranked across all 27 assets: 0.80 full, but collapses to **0.26** recently (0.87 correlated with trend).
-   - Ranked within sectors: collapses to **0.11** recently (3m and 6m are negative).
-   - *Verdict*: Use as a secondary 20–30% add-on sleeve, not the primary engine.
-4. **Macro Lead (Eemil & Jake Pooled)**:
-   - Rising CPI predicts falling bonds over 20–60 days (pooled $t = -2.9$, verified across all 5 moons). Best non-trend orthogonal signal.
+1. **The Dual-Engine Strategy (Kristofer's Stop + Cross-Sectional Momentum)**:
+   - **Engine 1 (Equities & Bonds Core)**: Kristofer's EMA 10/100 with a 3-close ratchet trailing stop on 10 sovereign bonds and stocks. Captures equity/bond growth while cutting left-tail risk (+0.07 Sharpe boost, kurtosis trimmed to 5.2).
+   - **Engine 2 (Relative Value & Short Sleeve)**: 12-month Cross-Sectional Momentum across all 27 planetary futures. Ranks winners vs losers, automatically shorting collapsing commodities (which fell 70–90%) and balancing portfolio beta.
+2. **The 50/50 Dual-Engine Performance (Official Lynx Evaluator)**:
+   - **1995–2002**: **1.002 – 1.018** Adjusted Sharpe
+   - **2002–2009**: **1.009 – 1.089** Adjusted Sharpe
+   - **2009–2016**: **1.012 – 1.045** Adjusted Sharpe
+   - **Full Period**: **1.007 – 1.034** Adjusted Sharpe (Nominal Sharpe: **1.28 – 1.29**, Kurtosis: **5.02**, Holding: **44–48 days**).
+   - *Regime Consistency*: **> 1.00 Adjusted Sharpe across EVERY single 7-year era**.
+3. **Friction Proof**:
+   - 44–48 days average holding time immunizes the strategy against Lynx's 2-day execution lag and $0.02\sigma$ slippage.
+4. **Macro Lead (Next Layer Step)**:
+   - Pooled planetary CPI growth predicts bond sell-offs over 20–60 days ($t = -2.9$ across all 5 moons). Tested as an orthogonal macro overlay.
 
 ---
 
