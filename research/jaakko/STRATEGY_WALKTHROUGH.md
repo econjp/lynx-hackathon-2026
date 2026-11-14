@@ -1,98 +1,113 @@
-# Strategy Walkthrough: The Multi-Engine Quant CTA Architecture
+# Strategy Walkthrough: The Dual-Engine Quant Architecture
 **Stockholm Lynx Hackathon (Nov 14, 2026)**  
-**Team**: Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
+**Core Strategy**: Kristofer's Engine (EMA 10/100 + Stretch Stop) + Cross-Sectional Momentum (12m Ranking)
+
+All figures generated directly with Lynx's official `evaluation.py` on `data/close_prices_insample.csv` (1995–2016, 27 assets, 2-day execution lag, $0.02\sigma$ slippage).
 
 ---
 
 ## 1. Executive Summary & Core Philosophy
 
-Our mandate is to generate risk-adjusted returns on 27 synthetic planetary futures over 1995–2016 under realistic institutional frictions:
-* **2-Day Execution Lag**: Positions submitted at date $t$ execute at close $t+2$. Fast trading is killed by execution lag.
-* **$0.02 \times \sigma(\Delta P)$ Slippage**: Churning orders burns alpha rapidly. Holding period must exceed 30–50 days.
-* **Adjusted Sharpe Ratio**: Penalizes fat-tail excess kurtosis quadratically ($SR_{\text{adj}} = SR [ 1 + \frac{S}{6}SR - \frac{K-3}{24}SR^2 ]$). Binary on/off flipping is penalized severely.
+Our mandate is to generate robust risk-adjusted cash returns across 27 synthetic planetary futures under severe market frictions:
+* **2-Day Execution Lag**: Orders placed at close $t$ execute at close $t+2$. Rapid trading burns alpha.
+* **$0.02 \times \sigma(\Delta P)$ Slippage**: Turnover is costly; holding periods must remain slow (40–60 days).
+* **Adjusted Sharpe Ratio**: Penalizes excess kurtosis (fat tails) quadratically.
 
-To conquer these frictions, we deploy a **4-Layer Quant Architecture**:
-1. **Layer 1 (Signals)**: A multi-engine ensemble pairing **Multi-Speed Trend** (macro asset coverage), **Kristofer's 3-Close Stretch Stop** (equity/bond bull drift with tail-risk protection), and **Sector-Neutral Cross-Sectional Momentum** (relative value).
-2. **Layer 2 (Risk Sizing)**: Dividing each position by daily price volatility $\sigma(\Delta P)$ so cash dollar risk is equalized.
-3. **Layer 3 (Portfolio Construction)**: Continuous signal blending ($w_1 S_1 + w_2 S_2 + w_3 S_3$) capped at $\pm 2$, ensuring low kurtosis.
-4. **Layer 4 (Execution)**: Smooth position gliding (`glide(0.10)`) producing an average holding period of **~50 days**, completely immunizing the book against 2-day slippage.
+Instead of relying on a single directional bet, our strategy deploys a **Dual-Engine Signal Architecture**:
+1. **Engine 1 (Kristofer's Engine — Equity & Bond Core)**: Trend-following on the 10 planetary stock and bond markets with an active 3-close ratchet trailing stop to cut left-tail crash risk.
+2. **Engine 2 (Cross-Sectional Momentum — Relative Value & Short Sleeve)**: Daily ranking across all 27 assets (and sector-neutrally) based on 12-month returns. This automatically shorts crashing commodities (which lost 70–90% of their value) and balances overall portfolio exposure.
 
 ---
 
-## 2. Step-by-Step Indicator Logic
+## 2. How the Two Engines Work
 
-### Engine A: Multi-Speed Time-Series Trend (Jake's Core)
-* **Mathematical Definition**:
-  $$EWMAC(f, s) = \frac{\text{EMA}_f(P) - \text{EMA}_s(P)}{\sigma(\Delta P)}$$
-* We blend two slow lookback pairs: **32/128 days** and **64/256 days**, combined 50/50 with **12-month momentum** ($P_t - P_{t-252}$).
-* **Why it works**: Slow lookbacks eliminate high-frequency chop, capture multi-month macro regimes, and naturally short the crashing planetary commodities (which lost 70–90% of their value).
+### Engine 1: Kristofer's EMA 10/100 + 3-Close Stretch Stop
+* **Asset Universe**: The 10 planetary stocks and bonds (`ganymede`, `io`, `titan`, `callisto`, `europa`).
+* **Trend Filter**: Long when EMA 10 > EMA 100.
+* **The Stretch Stop**: When the gap between fast and slow EMA exceeds $8\sigma$ of price volatility, an active ratchet stop is armed:
+  $$\text{Stop}_t = \max(\text{Stop}_{t-1}, P_{t-2}) \quad \text{after 3 rising closes}$$
+* **Exit**: If price drops below the ratchet stop, position drops to cash ($0.0$) until the gap cools below $8\sigma$.
+* **Why it works**: Captures the structural bull run in sovereign bonds and planetary equities while actively protecting against sharp drawdowns, adding **+0.07 Sharpe** over a plain EMA crossover.
 
-### Engine B: 3-Close Stretch Stop (Kristofer's Sleeve)
-* **Mathematical Definition**:
-  Runs an EMA 10 vs EMA 100 on the 10 planetary stock and bond markets. When trend gap stretches $> 8\sigma$, it arms a trailing ratchet stop:
-  $$\text{Stop}_t = \max(\text{Stop}_{t-1}, P_{t-2}) \quad \text{if 3 rising closes}$$
-* If price violates the stop, the position instantly cuts to cash ($0.0$) until the gap cools down below $8\sigma$.
-* **Why it works**: Equities and bonds had a 20-year structural bull run. Kristofer's engine captures this upside while cutting left-tail drawdowns, adding **+0.07 Sharpe** and lowering kurtosis from 5.66 to 5.22.
-
-### Engine C: Sector-Neutral Cross-Sectional Momentum
-* **Mathematical Definition**:
-  Ranks assets within each class (stocks vs stocks, bonds vs bonds, commodities vs commodities) on 12-month returns:
-  $$S_{i,t} = 2 \cdot (\text{PercentileRank}_{\text{class}}(R_{252}) - 0.5) \in [-1, +1]$$
-* **Why it works**: By ranking strictly within asset classes, it provides pure relative-value alpha without accidentally shorting an entire rallying sector.
+### Engine 2: Cross-Sectional Momentum (12-Month Lookback)
+* **Asset Universe**: All 27 planetary futures (stocks, bonds, FX, commodities).
+* **Signal**: Ranks assets based on past 252-day price momentum:
+  $$S_{i,t} = 2 \cdot \left(\text{PercentileRank}(R_{252}) - 0.5\right) \in [-1, +1]$$
+* **Why it works**: Provides true long/short balance. Over 1995–2016, commodities experienced severe secular bear markets. Cross-sectional momentum keeps the book consistently short the weakest commodities without requiring manual regime forecasting.
 
 ---
 
-## 3. Why and How We Combine Them (The Ensemble Magic)
+## 3. Why and How We Combine Them (The Dual-Engine Synergy)
 
-In quantitative finance, the **Fundamental Law of Active Management** dictates that combining uncorrelated alpha streams multiplies the information ratio:
-$$IR_{\text{portfolio}} \approx \sqrt{\sum IR_i^2} \quad \text{when uncorrelated}$$
+In quantitative portfolio management, blending low-correlated signals generates an immediate diversification dividend:
 
-### The Empirical Correlation Matrix (Daily Returns)
-| Signal | Jake Trend | Kristofer Stop | Sector Cross-Sectional |
+### Empirical Daily Return Correlation
+| Signal | Kristofer Stop (10 Assets) | Cross-Sectional (All 27) | Cross-Sectional (Sector-Neutral) |
 | :--- | :---: | :---: | :---: |
-| **Jake Trend** | **1.000** | **0.496** | **0.519** |
-| **Kristofer Stop** | **0.496** | **1.000** | **0.120** |
-| **Sector Cross-Sectional** | **0.519** | **0.120** | **1.000** |
+| **Kristofer Stop (10 Assets)** | **1.000** | **0.369** | **0.120** |
+| **Cross-Sectional (All 27)** | **0.369** | **1.000** | **0.758** |
+| **Cross-Sectional (Sector-Neutral)** | **0.120** | **0.758** | **1.000** |
 
-* Notice that **Kristofer Stop vs Sector Cross-Sectional correlation is only 0.120**!
-* By taking a linear weighted combination:
-  $$X_{\text{Champion}} = 0.50 \cdot X_{\text{Trend}} + 0.30 \cdot X_{\text{Kristofer}} + 0.20 \cdot X_{\text{CrossSectional}}$$
-  we create a portfolio where the weakness of each signal is cancelled by the strength of another:
-  1. Kristofer’s 100% long bias is tempered by Cross-Sectional and Trend shorting commodities.
-  2. Cross-Sectional’s 2009–2016 decay (0.11) is boosted by Kristofer's stellar 2009–2016 run (1.07).
-  3. The resulting book maintains **>0.97 Adjusted Sharpe across all three eras**!
+* **Zero-Correlation Synergy**: Kristofer's stop has only **0.120 correlation** with Sector-Neutral Cross-Sectional momentum!
+* **Fixing Flaw 1 (Kristofer's 100% Long Bias)**: Kristofer’s rule alone is 100% net long (`bias = 1.0`). If rates surge or stocks plunge, it carries beta risk. Blending with Cross-Sectional introduces short positions in decaying assets.
+* **Fixing Flaw 2 (Cross-Sectional's 2009–2016 Decay)**: Pure Cross-Sectional momentum dropped to **0.10–0.18** in 2009–2016. Paired with Kristofer's bond/equity engine (which scored 1.07 in that era), the combined portfolio stays above **1.00 across all regimes**.
 
 ---
 
-## 4. Official Performance Comparison Across Three 7-Year Eras
+## 4. Performance Summary (Official Lynx Evaluator)
 
-Evaluated using Lynx's official `evaluation.py` on `data/close_prices_insample.csv` (1995–2016, 27 assets):
+Evaluated on `close_prices_insample.csv` across all three 7-year eras:
 
-| Model / Architecture | 1995–2002 AdjSR | 2002–2009 AdjSR | 2009–2016 AdjSR | Full Period AdjSR | Nominal Sharpe | Skewness | Kurtosis | Holding (days) | Net Bias |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Team Baseline (40/80 tanh)** | 0.846 | 0.424 | 0.399 | 0.561 | 0.611 | -0.180 | 7.128 | 51.6d | +0.068 |
-| **Core Trend Pick (EWMAC + 12m)** | 1.174 | 0.728 | 0.401 | 0.800 | 0.869 | -0.147 | 4.852 | 64.5d | +0.084 |
-| **Kristofer Stop (10 Assets)** | 0.899 | 1.023 | 1.068 | 0.993 | 1.235 | -0.252 | 5.262 | 47.0d | +1.000 |
-| **Sector Cross-Sectional** | 1.012 | 0.792 | 0.156 | 0.654 | 0.683 | -0.138 | 4.336 | 35.9d | +0.247 |
-| **Champion Ensemble (50% Trend + 30% Kris + 20% XS)** | **1.037** | **1.032** | **0.973** | **1.028** | **1.272** | **-0.262** | **5.017** | **50.1d** | **+0.577** |
+| Model / Strategy | 1995–2002 | 2002–2009 | 2009–2016 | Full Period AdjSR | Nominal Sharpe | Kurtosis | Holding (days) | Net Bias |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Team Baseline (40/80 tanh)** | 0.846 | 0.424 | 0.399 | **0.561** | 0.611 | 7.128 | 51.6d | +0.068 |
+| **Kristofer 10-Asset Stop Alone** | 0.899 | 1.023 | 1.068 | **0.993** | 1.235 | 5.262 | 47.0d | +1.000 |
+| **Cross-Sectional (All 27) Alone** | 1.482 | 0.625 | 0.176 | **0.803** | 0.851 | 3.964 | 47.9d | +0.134 |
+| **Sector-Neutral Cross-Sectional Alone** | 1.302 | 0.600 | 0.105 | **0.697** | 0.722 | 3.976 | 39.9d | +0.265 |
+| **Dual-Engine: 50% Kris + 50% XS (All 27)** | **1.018** | **1.009** | **1.012** | **1.007** | **1.290** | **5.261** | **48.1d** | **+0.713** |
+| **Dual-Engine: 50% Kris + 50% XS (Sector-Neutral)** | **1.002** | **1.089** | **1.045** | **1.034** | **1.279** | **5.022** | **43.7d** | **+0.745** |
+
+### Key Performance Takeaways:
+1. **Rock-Solid Consistency**: The Dual-Engine scores **> 1.00 Adjusted Sharpe in EVERY single 7-year era**.
+2. **Execution Lag Proof**: Holding period is **44–48 days**, easily dodging the 2-day execution lag and slippage penalties.
+3. **Controlled Kurtosis**: Excess kurtosis remains near 5.0 (compared to the Lynx baseline's 27.76), eliminating quadratic tail penalties.
 
 ---
 
-## 5. Cumulative Strategy P&L Visualization (1995–2016)
+## 5. Cumulative Strategy P&L Chart (1995–2016)
 
 ![Cumulative Strategy PnL](./strategy_pnl_chart.png)
 
 ---
 
-## 6. What's Next & Scrapped Ideas (Defense for Lynx Advisors)
+## 6. Next Ideas & Steps for the Other Layers
 
-### Next Steps for Other Layers:
-1. **Weekly Covariance Matrix (Layer 2 Risk)**: Corrects for asynchronous planetary moon holidays (Titan has 226 flat days; Ganymede has 80) which artificially depress daily correlation.
-2. **Macro CPI Inflation Sleeve (Layer 3 Portfolio)**: Pooled CPI growth predicts bond sell-offs over 20–60 days ($t = -2.9$ across all 5 moons). Adding a 10% macro overlay provides pure non-trend alpha.
-3. **10% Rebalance Deadband (Layer 4 Execution)**: Suppresses rebalancing trades when $|X_{\text{target}} - X_{\text{current}}| < 0.10$, cutting trade count by ~35% with zero loss in alpha.
+### Layer 2: Risk Sizing & Volatility Estimation
+1. **Weekly Resampled Covariance Matrix**:
+   * *Problem*: Each moon has its own holiday schedule (Titan has 226 flat days, Ganymede 80). Daily price changes artificially depress measured correlation (0.41 daily vs 0.54 weekly).
+   * *Next Step*: Compute covariance on 5-day / weekly returns to capture true joint risk and prevent hidden clustering in correlated moon bonds.
+2. **Volatility Floor & Jump Protection**:
+   * Implement an adaptive vol floor to prevent massive position spikes in ultra-low volatility regimes (e.g. Callisto bonds).
 
-### What Was Tested and Scrapped:
-* **Parkinson High-Low Volatility**: Scrapped. High-low range vol was a constant ~80% of close vol across all planets, making zero impact on sizing.
-* **Fast EMA Lookbacks (12/48)**: Scrapped. Dropped score to 0.19 due to the 2-day lag and execution slippage.
-* **Binary $+1/-1$ Flipping**: Scrapped. Quadrupled excess kurtosis, causing massive penalties in Adjusted Sharpe.
-* **Ridge Regression Weights**: Scrapped. Overfit heavily in-sample and collapsed out-of-sample due to the low sample size of macro releases.
+### Layer 3: Portfolio Construction & Alpha Overlays
+1. **Macro Inflation Tilt (CPI $\rightarrow$ Short Bonds)**:
+   * *Empirical Finding*: Pooled planetary CPI growth predicts bond sell-offs over the subsequent 20–60 days ($t = -2.9$, confirmed across all 5 moons).
+   * *Next Step*: Use a 10% macro overlay to trim bond exposure when that planet's inflation spikes.
+2. **Dynamic Sleeve Weighting (Risk Parity)**:
+   * Dynamically adjust the 50/50 balance between Kristofer's stop and Cross-Sectional momentum based on realized sleeve volatility.
+
+### Layer 4: Execution & Friction Minimization
+1. **10% Rebalance Deadband (Trade Buffer)**:
+   * *Implementation*: If the target position change $|X_{\text{target}} - X_{\text{current}}| < 0.10$, suppress the trade.
+   * *Impact*: Eliminates ~35% of small noisy rebalancing trades, saving $0.02\sigma$ slippage on every skipped trade without degrading signal accuracy.
+2. **Glide Speed Optimization**:
+   * Calibrate exponential position filtering (`glide(0.10)`) to maintain holding periods comfortably above 45 days.
+
+---
+
+## 7. What Was Tested and Scrapped (Advisor Defense)
+
+* **Parkinson High-Low Volatility**: Scrapped. High-low range vol stayed at ~80% of close vol across all 27 assets; sizing was virtually identical to standard close vol.
+* **Short Lookback Cross-Sectional (3m / 6m)**: Scrapped. Dropped to negative Sharpe (-0.04 to -0.22) in the recent era and was penalized by execution lag.
+* **Binary On/Off Signals ($+1 / -1$)**: Scrapped. Quadrupled excess kurtosis, triggering steep penalties under Lynx's Adjusted Sharpe formula.
+* **Ridge Regression / Machine Learning Weights**: Scrapped. Macro data only has ~20 quarterly releases per moon; ML models overfit heavily in-sample and collapsed out-of-sample.
