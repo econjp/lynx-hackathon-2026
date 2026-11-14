@@ -49,8 +49,15 @@ In quantitative portfolio management, blending low-correlated signals generates 
 | **Cross-Sectional (Sector-Neutral)** | **0.120** | **0.758** | **1.000** |
 
 * **Zero-Correlation Synergy**: Kristofer's stop has only **0.120 correlation** with Sector-Neutral Cross-Sectional momentum!
-* **Fixing Flaw 1 (Kristofer's 100% Long Bias)**: Kristofer’s rule alone is 100% net long (`bias = 1.0`). If rates surge or stocks plunge, it carries beta risk. Blending with Cross-Sectional introduces short positions in decaying assets.
-* **Fixing Flaw 2 (Cross-Sectional's 2009–2016 Decay)**: Pure Cross-Sectional momentum dropped to **0.10–0.18** in 2009–2016. Paired with Kristofer's bond/equity engine (which scored 1.07 in that era), the combined portfolio stays above **1.00 across all regimes**.
+* **Eemil's Validation 1 (Statistical Confirmation)**:
+  Eemil's audit (`research/eemil/validation1.ipynb`) confirmed that while Kristofer's score has an underlying long drift ($R^2 = 0.56$ vs buy-and-hold), the stretch stop provides a **statistically significant crash filter**:
+  * Outperformed pure holding by **+0.29 Sharpe** in the 2002–2009 crash era (1.13 vs 0.84).
+  * Beats **98% of 200 random-timing placebos** ($p = 0.02$).
+  * Delivers a residual alpha of **Sharpe 0.51 ($t \approx 2.3$)** after removing the market drift.
+* **Why the Dual-Engine is Mandatory**:
+  * Kristofer’s rule alone is 100% net long (`bias = 1.0`). If the test period has a structural bear market, long-only will bleed.
+  * Cross-Sectional Momentum brings **true market-neutral balance** (`bias ~ 0`), automatically shorting collapsing commodities.
+  * In turn, Kristofer's crash filter saves Cross-Sectional from its 2009–2016 decay, keeping the combined portfolio above **1.00 across all regimes**.
 
 ---
 
