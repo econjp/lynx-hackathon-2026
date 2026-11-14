@@ -196,6 +196,40 @@ The strategy earns money evenly across all 4 asset classes.
 ### D8. OHLC / Parkinson Check
 Range volatility is a constant ~80% of close-to-close volatility across all assets. Parkinson range volatility does not change relative sizing.
 
+### D9a. Macro: GDP 60d Growth Correlation Across Planets
+High correlation (0.49–0.77) shows a synchronized planetary business cycle.
+
+| planet | ganymede | io | titan | callisto | europa |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **ganymede** | 1.00 | 0.69 | 0.74 | 0.49 | 0.77 |
+| **io** | 0.69 | 1.00 | 0.72 | 0.50 | 0.72 |
+| **titan** | 0.74 | 0.72 | 1.00 | 0.59 | 0.77 |
+| **callisto** | 0.49 | 0.50 | 0.59 | 1.00 | 0.58 |
+| **europa** | 0.77 | 0.72 | 0.77 | 0.58 | 1.00 |
+
+### D9b. Macro: CPI 60d Inflation Correlation Across Planets
+Titan and Ganymede inflation track closely (0.82), while Callisto and Europa are decoupled (-0.03).
+
+| planet | ganymede | io | titan | callisto | europa |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **ganymede** | 1.00 | 0.53 | 0.82 | 0.33 | 0.48 |
+| **io** | 0.53 | 1.00 | 0.56 | 0.51 | 0.27 |
+| **titan** | 0.82 | 0.56 | 1.00 | 0.39 | 0.48 |
+| **callisto** | 0.33 | 0.51 | 0.39 | 1.00 | -0.03 |
+| **europa** | 0.48 | 0.27 | 0.48 | -0.03 | 1.00 |
+
+### D9c. Macro: Within-Planet GDP Growth vs CPI Inflation
+Positive but mild correlation (0.15–0.26) across all 5 economies.
+
+| planet | GDP vs CPI correlation |
+| :--- | :---: |
+| **ganymede** | 0.18 |
+| **io** | 0.26 |
+| **titan** | 0.15 |
+| **callisto** | 0.22 |
+| **europa** | 0.19 |
+
+
 ---
 
 ## 5. Teammate Q&A Cheat Sheet
