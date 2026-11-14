@@ -19,6 +19,7 @@ Agreed on two signal generation mechanics (Kristofer's stop rule and cross-secti
 
 All strategy models, data analysis, and teammate idea backtests are verified using Lynx's official evaluator on `data/close_prices_insample.csv`.
 
+👉 **[Shared Research Hub & 15-Min Defense Cheat Sheet (SHARED_RESEARCH_HUB.md)](./SHARED_RESEARCH_HUB.md)**  
 👉 **[Open Full Strategy Pitch & Tables (research/jaakko/pitch/README.md)](./research/jaakko/pitch/README.md)**  
 👉 **[Open Complete Findings Summary (research/jaakko/FINDINGS.md)](./research/jaakko/FINDINGS.md)**  
 👉 **[Open Teammate Verification Report (research/jaakko/pitch/TEAM_CHECKS.md)](./research/jaakko/pitch/TEAM_CHECKS.md)**
