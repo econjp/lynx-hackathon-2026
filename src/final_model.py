@@ -121,9 +121,10 @@ def sleeve_vol(f, vol, dp):
     return pnl.rolling(SLEEVE_WIN, min_periods=SLEEVE_MIN).std().replace(0, np.nan)
 
 
-def cap_bonds(f, vol, dp, bets=BOND_BETS, window=250, start=60):
+def cap_bonds(f, vol, dp, bets=None, window=250, start=60):
     """Scale the bond forecasts down on days when the bond block's ex-ante risk exceeds
     `bets` times the average stand-alone risk of a live position (one 'bet')."""
+    bets = BOND_BETS if bets is None else bets
     bonds = [a for a in f.columns if asset_class(a) == "bonds"]
     if not bonds:
         return f
@@ -164,11 +165,16 @@ def sleeve_forecasts(prices, macro, k_bonds=K_BONDS, k_stocks=K_STOCKS, caps=Tru
     return fc, px, vol
 
 
-def combine(fc, px, vol, sleeves=SLEEVES, caps=True, alpha=ALPHA):
+def combine(fc, px, vol, sleeves=SLEEVES, caps=True, alpha=ALPHA, budget="equal"):
+    """budget="equal": every sleeve gets the same risk. budget="breadth": a sleeve's variance budget is
+    proportional to the number of assets it trades that day (risk per asset is then about equal)."""
     dp = px.diff()
     total = pd.DataFrame(0.0, index=px.index, columns=px.columns)
     for s in sleeves:
-        total = total + fc[s].div(sleeve_vol(fc[s], vol, dp), axis=0).fillna(0.0)
+        scaled = fc[s].div(sleeve_vol(fc[s], vol, dp), axis=0).fillna(0.0)
+        if budget == "breadth":
+            scaled = scaled.mul(np.sqrt((fc[s].abs() > 0).sum(axis=1)), axis=0)
+        total = total + scaled
     if caps:
         for a in HALF_WEIGHT:
             if a in total:
