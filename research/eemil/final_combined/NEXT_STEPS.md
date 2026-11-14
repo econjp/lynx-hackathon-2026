@@ -7,6 +7,7 @@
 | `final_model.ipynb` | plots, performance table, validation, verdict. Start here |
 | `final_validation.py` | computes every number. Writes `FINAL_RESULTS.md` and `final_sleeves.png` (about 10 seconds) |
 | `FINAL_RESULTS.md` | the tables as markdown |
+| `engines_bc.py`, `ENGINES_BC.md` | Engine B (Kristofer stop) and Engine C (sector-neutral XS momentum): alone, combined, vs plain holding, mirror-world test, parameter neighbours, leak test, bootstrap |
 | `submission/run_final.py` | in-sample + out-of-sample CSVs in, positions CSV out, one command |
 | `submission/positions_insample.csv` | final model positions, full in-sample period, Lynx format |
 
