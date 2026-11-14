@@ -1,6 +1,9 @@
 # Strategy Walkthrough: The Dual-Engine Quant Architecture
 **Stockholm Lynx Hackathon (Nov 14, 2026)**  
-**Core Strategy**: Kristofer's Engine (EMA 10/100 + Stretch Stop) + Cross-Sectional Momentum (12m Ranking)
+**Authors**: Jaakko Pakarinen, Eemil Ylä-Nikkilä, Kristofer Vaiksaar, Erik Joonas Salumäe (**Team NewNordics / team-06**)  
+**Core Strategy**: Kristofer's Engine (EMA 10/100 + Stretch Stop) + Sector-Neutral Cross-Sectional Momentum (12m Ranking)
+
+> 📓 **Interactive Jupyter Notebook**: The full step-by-step walkthrough, runnable Python code, and executed charts are available in [strategy_walkthrough.ipynb](./strategy_walkthrough.ipynb).
 
 All figures generated directly with Lynx's official `evaluation.py` on `data/close_prices_insample.csv` (1995–2016, 27 assets, 2-day execution lag, $0.02\sigma$ slippage).
 
