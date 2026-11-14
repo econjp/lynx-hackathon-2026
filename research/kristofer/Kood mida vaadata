@@ -1,0 +1,202 @@
+"""
+EMA 10/100 long-only + stretch-activated 3-close trailing stop
+===============================================================
+
+Strategy
+--------
+1. Trend: long when EMA(10) > EMA(100), flat otherwise (long only).
+2. Stretch trigger: gap = (EMA10 - EMA100) / daily vol, where daily vol is the
+   100-day RMS of daily price changes. When the gap reaches GAP_THRESHOLD
+   (default 8), the 3-close trailing stop is started.
+3. 3-close trailing stop (closes only):
+   - 3 rising closes in a row -> stop goes under the lowest (first) of them
+   - the stop only ratchets up, never down
+   - a lower close while armed -> the previous close becomes a reference level
+     and the ratchet is suspended
+   - suspended -> re-arms after 3 rising closes in a row, all above the reference
+   - a close below the stop -> exit to flat
+4. Re-entry after a stop-out: when the gap falls back below the threshold
+   ("gap_normal") or only at the next fresh EMA crossover ("new_cross").
+
+Backtest engine (Lynx hackathon rules)
+--------------------------------------
+- Daily closes only. A position decided at close T earns the move from
+  close T+1 to close T+2 (2-day execution lag).
+- Position size = signal / vol (inverse-volatility sizing, 100-day window).
+- Daily PnL = position x price change - DELTA x |change in position|.
+- Portfolio PnL = sum of the asset PnLs.
+- Score = net Adjusted Sharpe:
+      SR * (1 + S/6 * SR - (K - 3)/24 * SR^2)
+  SR = annualised Sharpe of daily PnL, S = skewness, K = kurtosis.
+
+Usage
+-----
+    pip install pandas numpy matplotlib
+    python ema_stretch_stop_backtest.py close_prices_insample.csv
+
+The CSV is semicolon-separated with an "AsOfDate" column (dd.mm.yyyy) and one
+column of closing prices per asset.
+"""
+
+import sys
+
+import numpy as np
+import pandas as pd
+
+# ============================ Settings ============================
+CSV_FILE = sys.argv[1] if len(sys.argv) > 1 else "close_prices_insample.csv"
+
+# Assets: any column whose name ends with one of these suffixes.
+# Stocks + bonds = the 10 assets that scored 0.99.
+ASSET_SUFFIXES = ("_stocks", "_bonds")
+
+FAST_EMA = 10
+SLOW_EMA = 100
+
+USE_STOP = True             # on/off: stretch-activated 3-close trailing stop
+GAP_THRESHOLD = 8.0         # extreme EMA gap, in units of daily vol
+UP_MOVES = 2                # 2 = 3 rising closes in a row
+REENTRY = "gap_normal"      # "gap_normal" or "new_cross"
+
+USE_VOL_SIZING = True       # on/off: 1/vol position sizing
+VOL_WINDOW = 100
+USE_COSTS = True            # on/off: transaction costs
+DELTA = 0.0002              # cost per unit of position change
+
+WARMUP = 400                # days skipped before scoring starts
+SHOW_PLOT = True            # on/off: plot the portfolio equity curve
+
+
+# ============================ Data ============================
+def load_prices(path: str) -> pd.DataFrame:
+    px = pd.read_csv(path, sep=";")
+    px = px.loc[:, ~px.columns.str.startswith("Unnamed")]
+    px["AsOfDate"] = pd.to_datetime(px["AsOfDate"], format="%d.%m.%Y")
+    return px.set_index("AsOfDate").sort_index()
+
+
+# ============================ Signal ============================
+def stretch_stop_positions(close: np.ndarray, gap: np.ndarray, trend: np.ndarray) -> np.ndarray:
+    """Daily position (1 or 0) for one asset. Uses only data up to each day."""
+    n = len(close)
+    pos = np.zeros(n)
+    active = out = False
+    armed = True
+    stop = ref = np.nan
+    up = 0
+    prev_trend = 0
+
+    for i in range(n):
+        d = trend[i]
+        if d != prev_trend:                     # new EMA signal resets everything
+            active = out = False
+        prev_trend = d
+        if d == 0:
+            continue
+
+        if out:                                 # stopped out, waiting for re-entry
+            if REENTRY == "gap_normal" and gap[i] < GAP_THRESHOLD:
+                out = False
+            if out:
+                continue
+
+        if USE_STOP and not active and gap[i] >= GAP_THRESHOLD:
+            active, armed, stop, ref, up = True, True, np.nan, np.nan, 0
+
+        if active:
+            up = up + 1 if close[i] > close[i - 1] else 0
+            if not np.isnan(stop) and close[i] < stop:
+                active, out = False, True       # stop hit -> flat
+                continue
+            if armed:
+                if up >= UP_MOVES:
+                    low = close[i - UP_MOVES]
+                    stop = low if np.isnan(stop) else max(stop, low)
+                if not np.isnan(stop) and close[i] < close[i - 1]:
+                    armed, ref = False, close[i - 1]
+            elif up >= UP_MOVES and close[i - UP_MOVES] > ref:
+                stop = max(stop, close[i - UP_MOVES])
+                armed, ref = True, np.nan
+
+        pos[i] = 1.0
+    return pos
+
+
+def build_signals(px: pd.DataFrame) -> pd.DataFrame:
+    dp = px.diff()
+    vol = np.sqrt((dp ** 2).rolling(VOL_WINDOW).mean())
+    ema_f = px.ewm(span=FAST_EMA, adjust=False).mean()
+    ema_s = px.ewm(span=SLOW_EMA, adjust=False).mean()
+    gap = ((ema_f - ema_s) / vol).fillna(0)
+    trend = (ema_f > ema_s).astype(int)
+
+    sig = {}
+    for col in px.columns:
+        sig[col] = stretch_stop_positions(px[col].to_numpy(), gap[col].to_numpy(), trend[col].to_numpy())
+    return pd.DataFrame(sig, index=px.index)
+
+
+# ============================ Engine ============================
+def backtest(px: pd.DataFrame, signal: pd.DataFrame):
+    dp = px.diff()
+    vol = np.sqrt((dp ** 2).rolling(VOL_WINDOW).mean())
+    X = signal / vol if USE_VOL_SIZING else signal.astype(float)
+    X = X.replace([np.inf, -np.inf], 0).fillna(0)
+
+    x2, x3 = X.shift(2), X.shift(3)            # 2-day execution lag
+    gross = x2 * dp
+    cost = DELTA * (x2 - x3).abs() if USE_COSTS else 0.0
+    net = gross - cost
+    return net.iloc[WARMUP:], gross.iloc[WARMUP:], signal.iloc[WARMUP:]
+
+
+def stats(pnl: pd.Series) -> dict:
+    p = pnl.dropna()
+    mu, sd = p.mean(), p.std(ddof=0)
+    sr = mu / sd * np.sqrt(252)
+    sk = ((p - mu) ** 3).mean() / sd ** 3
+    ku = ((p - mu) ** 4).mean() / sd ** 4
+    adj = sr * (1 + sk / 6 * sr - (ku - 3) / 24 * sr ** 2)
+    return {"Sharpe": sr, "Skew": sk, "Kurtosis": ku, "AdjSharpe": adj}
+
+
+# ============================ Run ============================
+def main():
+    px = load_prices(CSV_FILE)
+    cols = [c for c in px.columns if c.endswith(ASSET_SUFFIXES)]
+    px = px[cols]
+    print(f"{len(cols)} assets: {', '.join(cols)}")
+    print(f"Data: {px.index[0].date()} to {px.index[-1].date()}, scoring from {px.index[WARMUP].date()}\n")
+
+    signal = build_signals(px)
+    net, gross, sig = backtest(px, signal)
+
+    per_asset = pd.DataFrame({c: stats(net[c]) for c in cols}).T
+    per_asset["TimeInMarket"] = (sig != 0).mean()
+    print("Per asset (net):")
+    print(per_asset.sort_values("AdjSharpe", ascending=False).round(2).to_string(), "\n")
+
+    port = net.sum(axis=1)
+    s = stats(port)
+    mid = port.index[len(port) // 2]
+    h1, h2 = stats(port[:mid])["AdjSharpe"], stats(port[mid:])["AdjSharpe"]
+    print("PORTFOLIO")
+    print(f"  Gross Sharpe     {stats(gross.sum(axis=1))['Sharpe']:.2f}")
+    print(f"  Net Sharpe       {s['Sharpe']:.2f}")
+    print(f"  Skew             {s['Skew']:.2f}")
+    print(f"  Kurtosis         {s['Kurtosis']:.2f}")
+    print(f"  ADJUSTED SHARPE  {s['AdjSharpe']:.2f}")
+    print(f"  1st half / 2nd half Adj. Sharpe: {h1:.2f} / {h2:.2f} (split {mid.date()})")
+    print(f"  Time in market   {(sig != 0).mean().mean():.0%}")
+
+    if SHOW_PLOT:
+        import matplotlib.pyplot as plt
+        port.cumsum().plot(title=f"Net equity, EMA {FAST_EMA}/{SLOW_EMA} + stretch stop "
+                                 f"(Adj. Sharpe {s['AdjSharpe']:.2f})", figsize=(10, 5))
+        plt.ylabel("Cumulative PnL (vol units)")
+        plt.tight_layout()
+        plt.show()
+
+
+if __name__ == "__main__":
+    main()
