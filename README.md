@@ -1,17 +1,18 @@
-# lynx-hackathon-2026
+# stockholm-cta-systematic-2026
 
-Stockholm Lynx Hackathon (Nov 2026). #2 on raw out-of-sample Sharpe (0.958).  
+Systematic multi-asset trend-following and momentum engine. **#2 raw out-of-sample Sharpe (0.958)**.  
 **Team:** Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
 
 | folder | what |
 |---|---|
-| **[`SUBMISSION/`](./SUBMISSION/)** | final model, leak test, positions |
-| **[`FINAL_OOS_PERFORMANCE/`](./FINAL_OOS_PERFORMANCE/)** | out-of-sample performance report (0.76 / 0.69 adj. Sharpe) |
+| **[`SUBMISSION/`](./SUBMISSION/)** | final model, leak tests, positions |
+| **[`FINAL_OOS_PERFORMANCE/`](./FINAL_OOS_PERFORMANCE/)** | out-of-sample performance report (0.76 / 0.69 adj. Sharpe, 0.958 raw) |
 | **[`FINAL_BACKTEST.ipynb`](./FINAL_BACKTEST.ipynb)** | end-to-end backtest notebook |
 | [`WORK_DUMP/`](./WORK_DUMP/) | research, earlier models and notes |
 | `data/` | in-sample prices and macro |
 | `lynx_materials/` | evaluator and starter notebooks |
 
+**Performance:** In-sample **1.15** adj. Sharpe (1.29 raw) · Out-of-sample **0.958** raw Sharpe (#2) / **0.76 & 0.69** adj. Sharpe.  
 **Model:** 50% BOMBASTRAT (trend + inflation + twins) + 50% GOAT (ratchet stop equity/bond long + cross-sectional momentum).
 
 ```bash
