@@ -1,17 +1,18 @@
 # lynx-hackathon-2026
 
-Stockholm Lynx Hackathon. **Team:** Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
+Stockholm Lynx Hackathon (Nov 2026). #2 on raw out-of-sample Sharpe (0.958).  
+**Team:** Jaakko Pakarinen, Eemil Ylä-Nikkilä, Erik Joonas Salumäe, Kristofer Vaiksaar
 
 | folder | what |
 |---|---|
-| **[`FINAL_OOS_PERFORMANCE/`](./FINAL_OOS_PERFORMANCE/)** | **how the submission did out of sample**: report (PDF and notebook). OOS adjusted Sharpe 0.76 / 0.69 |
-| **[`SUBMISSION/`](./SUBMISSION/)** | the final submission: model, leak test, positions. Start here |
-| **[`FINAL_BACKTEST.ipynb`](./FINAL_BACKTEST.ipynb)** | end-to-end check of `SUBMISSION/`: positions, leak tests, hand-off rehearsal, score, charts |
-| [`WORK_DUMP/`](./WORK_DUMP/) | all research, earlier models, audits and notes |
-| `data/` | the in-sample files from Lynx |
-| `lynx_materials/` | Lynx's instructions and evaluator |
+| **[`SUBMISSION/`](./SUBMISSION/)** | final model, leak test, positions |
+| **[`FINAL_OOS_PERFORMANCE/`](./FINAL_OOS_PERFORMANCE/)** | out-of-sample performance report (0.76 / 0.69 adj. Sharpe) |
+| **[`FINAL_BACKTEST.ipynb`](./FINAL_BACKTEST.ipynb)** | end-to-end backtest notebook |
+| [`WORK_DUMP/`](./WORK_DUMP/) | research, earlier models and notes |
+| `data/` | in-sample prices and macro |
+| `lynx_materials/` | evaluator and starter notebooks |
 
-**Final model:** 50% BOMBASTRAT (trend + inflation + twins, market neutral) + 50% GOAT (stop-managed long in stocks and bonds + cross-sectional momentum), one portfolio.
+**Model:** 50% BOMBASTRAT (trend + inflation + twins) + 50% GOAT (ratchet stop equity/bond long + cross-sectional momentum).
 
 ```bash
 pip install polars pandas numpy pyarrow matplotlib
